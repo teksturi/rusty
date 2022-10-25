@@ -1,0 +1,24 @@
+---
+source: src/codegen/tests/expression_tests.rs
+assertion_line: 347
+expression: result
+---
+; ModuleID = 'main'
+source_filename = "main"
+
+define i16 @main() {
+entry:
+  %main = alloca i16, align 2
+  store i16 0, i16* %main, align 2
+  %varargs = alloca [7 x i16], align 2
+  store [7 x i16] [i16 5, i16 2, i16 1, i16 3, i16 4, i16 7, i16 -1], [7 x i16]* %varargs, align 2
+  %0 = alloca i32, align 4
+  store i32 7, i32* %0, align 4
+  %call = call i16 @MAX__INT(i32* %0, [7 x i16]* %varargs)
+  store i16 %call, i16* %main, align 2
+  %main_ret = load i16, i16* %main, align 2
+  ret i16 %main_ret
+}
+
+declare i16 @MAX__INT(i32, i16*)
+

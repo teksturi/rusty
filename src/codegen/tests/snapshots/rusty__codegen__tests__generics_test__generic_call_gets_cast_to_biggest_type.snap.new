@@ -1,0 +1,24 @@
+---
+source: src/codegen/tests/generics_test.rs
+assertion_line: 92
+expression: codegen(src)
+---
+; ModuleID = 'main'
+source_filename = "main"
+
+define double @main() {
+entry:
+  %main = alloca double, align 8
+  store double 0.000000e+00, double* %main, align 8
+  %varargs = alloca [4 x double], align 8
+  store [4 x double] [double 5.000000e+00, double 1.000000e+00, double 1.500000e+00, double 1.200000e+00], [4 x double]* %varargs, align 8
+  %0 = alloca i32, align 4
+  store i32 4, i32* %0, align 4
+  %call = call double @MAX__LREAL(i32* %0, [4 x double]* %varargs)
+  store double %call, double* %main, align 8
+  %main_ret = load double, double* %main, align 8
+  ret double %main_ret
+}
+
+declare double @MAX__LREAL(i32, double*)
+

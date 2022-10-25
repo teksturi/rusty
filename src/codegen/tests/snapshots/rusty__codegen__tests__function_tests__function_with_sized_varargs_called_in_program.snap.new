@@ -1,0 +1,28 @@
+---
+source: src/codegen/tests/function_tests.rs
+assertion_line: 202
+expression: result
+---
+; ModuleID = 'main'
+source_filename = "main"
+
+%prg_interface = type { i32 }
+
+@prg_instance = global %prg_interface zeroinitializer
+
+declare i32 @foo(i32, i32*)
+
+define void @prg(%prg_interface* %0) {
+entry:
+  %x = getelementptr inbounds %prg_interface, %prg_interface* %0, i32 0, i32 0
+  %load_x = load i32, i32* %x, align 4
+  %tmpVar = add i32 %load_x, 1
+  %varargs = alloca [3 x i32], align 4
+  store [3 x i32] [i32 0, i32 3, i32 %tmpVar], [3 x i32]* %varargs, align 4
+  %1 = alloca i32, align 4
+  store i32 3, i32* %1, align 4
+  %call = call i32 @foo(i32* %1, [3 x i32]* %varargs)
+  store i32 %call, i32* %x, align 4
+  ret void
+}
+

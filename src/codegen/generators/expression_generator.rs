@@ -836,28 +836,93 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
                 } else {
                     llvm_type
                 };
-                let size = generated_params.len();
-                let size_param = self.llvm.i32_type().const_int(size as u64, true);
-                let arr = Llvm::get_array_type(llvm_type, size as u32);
-                let arr_storage = self.llvm.builder.build_alloca(arr, "");
-                for (i, ele) in generated_params.iter().enumerate() {
-                    let ele_ptr = self.llvm.load_array_element(
-                        arr_storage,
-                        &[
-                            self.llvm.context.i32_type().const_zero(),
-                            self.llvm.context.i32_type().const_int(i as u64, true),
-                        ],
-                        "",
-                    )?;
-                    self.llvm.builder.build_store(ele_ptr, *ele);
-                }
-                Ok(vec![size_param.into(), arr_storage.into()])
+                // generate the variadic values
+                let size_value = self
+                    .llvm
+                    .i32_type()
+                    .const_int(generated_params.len() as u64, false);
+
+                // these 2 lines need a helper function (it now assumes intValues)
+                let arr_storage = self.store_in_array(&generated_params, llvm_type);
+                Ok(vec![size_value.into(), arr_storage.into()])
             } else {
                 Ok(generated_params)
             }
         } else {
             unreachable!("Function must be variadic")
         }
+    }
+
+    fn store_in_array(
+        &self,
+        generated_params: &Vec<BasicValueEnum<'ink>>,
+        llvm_type: BasicTypeEnum<'ink>,
+    ) -> PointerValue<'ink> {
+        let arr = Llvm::get_array_type(llvm_type, generated_params.len() as u32);
+        let arr_storage = self.llvm.builder.build_alloca(arr, "varargs");
+        match llvm_type {
+            BasicTypeEnum::ArrayType(_) => {
+                let values  = generated_params
+                    .iter()
+                    .map(|it| it.into_array_value())
+                    .collect::<Vec<_>>();
+                self.llvm.builder.build_store(
+                    arr_storage,
+                    llvm_type.into_array_type().const_array(values.as_slice()),
+                );
+            }
+            BasicTypeEnum::FloatType(_) => {
+                let values  = generated_params
+                    .iter()
+                    .map(|it| it.into_float_value())
+                    .collect::<Vec<_>>();
+                self.llvm.builder.build_store(
+                    arr_storage,
+                    llvm_type.into_float_type().const_array(values.as_slice()),
+                );
+            },
+            BasicTypeEnum::IntType(_) => {
+                let values  = generated_params
+                    .iter()
+                    .map(|it| it.into_int_value())
+                    .collect::<Vec<_>>();
+                self.llvm.builder.build_store(
+                    arr_storage,
+                    llvm_type.into_int_type().const_array(values.as_slice()),
+                );
+            }
+            BasicTypeEnum::PointerType(_) => {
+                let values  = generated_params
+                    .iter()
+                    .map(|it| it.into_pointer_value())
+                    .collect::<Vec<_>>();
+                self.llvm.builder.build_store(
+                    arr_storage,
+                    llvm_type.into_pointer_type().const_array(values.as_slice()),
+                );
+            },
+            BasicTypeEnum::StructType(_) => {
+                let values  = generated_params
+                    .iter()
+                    .map(|it| it.into_struct_value())
+                    .collect::<Vec<_>>();
+                self.llvm.builder.build_store(
+                    arr_storage,
+                    llvm_type.into_struct_type().const_array(values.as_slice()),
+                );
+            },
+            BasicTypeEnum::VectorType(_) => {
+                let values  = generated_params
+                    .iter()
+                    .map(|it| it.into_vector_value())
+                    .collect::<Vec<_>>();
+                self.llvm.builder.build_store(
+                    arr_storage,
+                    llvm_type.into_vector_type().const_array(values.as_slice()),
+                );
+            },
+        }
+        arr_storage
     }
 
     /// generates a new instance of a function called `function_name` and returns a PointerValue to it
