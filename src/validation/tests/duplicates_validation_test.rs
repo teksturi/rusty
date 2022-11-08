@@ -1,11 +1,11 @@
 use crate::{
-    ast::{self, SourceRange, SourceRangeFactory},
+    ast::{self, SourceRange, SourceRangeFactory, CompilationUnit},
     diagnostics::Diagnostic,
     index::{visitor, Index},
     lexer::{self, IdProvider},
     parser,
     test_utils::tests::parse_and_validate,
-    validation::Validator,
+    validation::Validator, resolver::{TypeAnnotator, AnnotationMapImpl},
 };
 
 #[test]
@@ -526,6 +526,102 @@ fn automatically_generated_output_types_in_different_files_dont_cause_duplicatio
     let mut global_index = Index::default();
     global_index.import(index1); //import file 1
     global_index.import(index2); //import file 2
+
+    // THEN there should be no duplication diagnostics
+    let mut validator = Validator::new();
+    validator.perform_global_validation(&global_index);
+    let diagnostics = validator.diagnostics();
+    assert_eq!(diagnostics, vec![]);
+}
+
+
+#[test]
+fn duplicate_with_generic() {
+    // a version of the test-util function that does not import the built-in and std-types
+    // (or they will cause a duplication issue)
+    fn do_index(src: &str, id_provider: IdProvider, file_name: &str) -> (Index, CompilationUnit) {
+        let mut index = Index::default();
+        let (mut unit, ..) = parser::parse(
+            lexer::lex_with_ids(src, id_provider.clone(), SourceRangeFactory::internal()),
+            ast::LinkageType::Internal,
+            file_name,
+        );
+        ast::pre_process(&mut unit, id_provider.clone());
+        index.import(visitor::visit(&unit, id_provider));
+        (index, unit)
+    }
+
+    // GIVEN some code that automatically generates a ptr-types
+    let ids = IdProvider::default();
+    let (index1, unit1) = do_index(
+        r#"
+{external}
+FUNCTION CONCAT_DATE <T: ANY_INT> : DATE
+VAR_INPUT
+	year : T;
+	month : T;
+	day : T;
+END_VAR
+END_FUNCTION
+        "#,
+        ids.clone(),
+     "file1.st");
+
+    //AND another file with also OUTPUT-INTS
+    let (index2, unit2) = do_index(
+        r#"
+        PROGRAM prg
+            CONCAT_DATE(INT#1, SINT#2, SINT#3);
+            CONCAT_DATE(DINT#1, SINT#2, SINT#3);
+            CONCAT_DATE(INT#1, SINT#2, SINT#3);
+            CONCAT_DATE(INT#1, SINT#2, SINT#3);
+        END_VAR
+        "#,
+        ids.clone(), "file2.st"
+    );
+
+//AND another file with also OUTPUT-INTS
+    let (index3, unit3) = do_index(
+        r#"
+        PROGRAM prg2
+            CONCAT_DATE(INT#1, SINT#2, SINT#3);
+            CONCAT_DATE(DINT#1, SINT#2, SINT#3);
+            CONCAT_DATE(INT#1, SINT#2, SINT#3);
+            CONCAT_DATE(INT#1, SINT#2, SINT#3);
+        END_VAR
+        "#,
+        ids, "file3.st"
+    );
+
+
+
+    dbg!(index1.get_implementations().values().map(|it| it.get_call_name() ).collect::<Vec<_>>());
+    dbg!(index2.get_implementations().values().map(|it| it.get_call_name() ).collect::<Vec<_>>());
+    dbg!(index3.get_implementations().values().map(|it| it.get_call_name() ).collect::<Vec<_>>());
+
+    // WHEN the index is combined
+    let mut global_index = Index::default();
+    global_index.import(index1); //import file 1
+    global_index.import(index2); //import file 2
+    global_index.import(index3); //import file 3
+
+    // and the resolvers does its job
+    let (annotations1, _) = TypeAnnotator::visit_unit(&global_index, &unit1);
+    let (annotations2, _) = TypeAnnotator::visit_unit(&global_index, &unit2);
+    let (annotations3, _) = TypeAnnotator::visit_unit(&global_index, &unit3);
+
+    dbg!(annotations1.new_index.get_implementations().values().map(|it| it.get_call_name() ).collect::<Vec<_>>());
+    dbg!(annotations2.new_index.get_implementations().values().map(|it| it.get_call_name() ).collect::<Vec<_>>());
+    dbg!(annotations3.new_index.get_implementations().values().map(|it| it.get_call_name() ).collect::<Vec<_>>());
+    
+    let mut all_annotations = AnnotationMapImpl::default();
+    all_annotations.import(annotations1);
+    all_annotations.import(annotations2);
+    all_annotations.import(annotations3);
+
+    global_index.import(std::mem::take(&mut all_annotations.new_index));
+
+    dbg!(global_index.get_implementations().values().map(|it| it.get_call_name() ).collect::<Vec<_>>());
 
     // THEN there should be no duplication diagnostics
     let mut validator = Validator::new();

@@ -788,7 +788,7 @@ pub struct Index {
     pous: SymbolMap<String, PouIndexEntry>,
 
     /// all implementations
-    implementations: SymbolMap<String, ImplementationIndexEntry>,
+    implementations: IndexMap<String, ImplementationIndexEntry>,
 
     /// an index with all type-information
     type_index: TypeIndex,
@@ -1299,7 +1299,7 @@ impl Index {
         &self.enum_qualified_variables
     }
 
-    pub fn get_implementations(&self) -> &SymbolMap<String, ImplementationIndexEntry> {
+    pub fn get_implementations(&self) -> &IndexMap<String, ImplementationIndexEntry> {
         &self.implementations
     }
 
