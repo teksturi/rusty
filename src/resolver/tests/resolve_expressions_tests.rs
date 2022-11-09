@@ -1,10 +1,13 @@
 use core::panic;
 
+use insta::assert_snapshot;
+
 use crate::{
     ast::{self, flatten_expression_list, AstStatement, DataType, Pou, UserTypeDeclaration},
+    compile_module,
     index::{Index, VariableType},
-    resolver::{AnnotationMap, AnnotationMapImpl, StatementAnnotation},
-    test_utils::tests::annotate,
+    resolver::{AnnotationMap, AnnotationMapImpl, AstAnnotations, StatementAnnotation},
+    test_utils::tests::{annotate, codegen},
     typesystem::{
         DataTypeInformation, BOOL_TYPE, BYTE_TYPE, DINT_TYPE, DWORD_TYPE, INT_TYPE, LINT_TYPE,
         LREAL_TYPE, REAL_TYPE, SINT_TYPE, UINT_TYPE, USINT_TYPE, VOID_TYPE,
@@ -3344,4 +3347,55 @@ fn undeclared_varargs_type_hint_promoted_correctly() {
     } else {
         unreachable!();
     }
+}
+
+#[test]
+fn resolve_return_variable_in_nested_call() {
+    // GIVEN a call statement where we take the adr of the return-variable
+    let src = "
+        FUNCTION main : DINT
+        VAR
+            x1, x2 : DINT;
+        END_VAR
+        x1 := SMC_Read(
+                    ValAddr := ADR(main));
+        END_FUNCTION
+
+        FUNCTION SMC_Read : DINT
+        VAR_INPUT
+            ValAddr : LWORD;
+        END_VAR
+        END_FUNCTION
+          ";
+    let (unit, mut index) = index(src);
+
+    // THEN we check if the adr(main) really resolved to the return-variable
+    let annotations = annotate(&unit, &mut index);
+    let ass = &unit.implementations[0].statements[0];
+
+    if let AstStatement::Assignment { right, .. } = ass {
+        if let AstStatement::CallStatement { parameters, .. } = right.as_ref() {
+            let inner_ass = ast::flatten_expression_list(parameters.as_ref().as_ref().unwrap())[0];
+            if let AstStatement::Assignment { right, .. } = inner_ass {
+                if let AstStatement::CallStatement { parameters, .. } = right.as_ref() {
+                    let main =
+                        ast::flatten_expression_list(parameters.as_ref().as_ref().unwrap())[0];
+                    let a = annotations.get(main).unwrap();
+                    assert_eq!(
+                        a,
+                        &StatementAnnotation::Variable {
+                            resulting_type: "DINT".to_string(),
+                            qualified_name: "main.main".to_string(),
+                            constant: false,
+                            variable_type: VariableType::Return,
+                            is_auto_deref: false
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    // AND we want a call passing the return-variable as apointer (actually the adress as a LWORD)
+    assert_snapshot!(codegen(src));
 }
