@@ -698,29 +698,38 @@ impl Debug for ConditionalBlock {
     }
 }
 
-#[derive(Clone, PartialEq)]
-pub enum AstStatement {
+/// macro that constructs the AstStatement enum and adds
+/// the `id: AstId` field to every single element
+macro_rules! astStatement {
+    ($($name:ident { $($tt:tt)* }),*) => {
+        #[derive(Clone, PartialEq)]
+        pub enum AstStatement {
+            $($name {
+                id: AstId,
+                $($tt)*
+            },)*
+        }
+    };
+}
+
+astStatement! {
     EmptyStatement {
         location: SourceRange,
-        id: AstId,
     },
     // a placeholder that indicates a default value of a datatype
     DefaultValue {
         location: SourceRange,
-        id: AstId,
     },
     // Literals
     LiteralInteger {
         value: i128,
         location: SourceRange,
-        id: AstId,
     },
     LiteralDate {
         year: i32,
         month: u32,
         day: u32,
         location: SourceRange,
-        id: AstId,
     },
     LiteralDateAndTime {
         year: i32,
@@ -731,7 +740,6 @@ pub enum AstStatement {
         sec: u32,
         nano: u32,
         location: SourceRange,
-        id: AstId,
     },
     LiteralTimeOfDay {
         hour: u32,
@@ -739,7 +747,6 @@ pub enum AstStatement {
         sec: u32,
         nano: u32,
         location: SourceRange,
-        id: AstId,
     },
     LiteralTime {
         day: f64,
@@ -751,119 +758,98 @@ pub enum AstStatement {
         nano: u32,
         negative: bool,
         location: SourceRange,
-        id: AstId,
     },
     LiteralReal {
         value: String,
         location: SourceRange,
-        id: AstId,
     },
     LiteralBool {
         value: bool,
         location: SourceRange,
-        id: AstId,
     },
     LiteralString {
         value: String,
         is_wide: bool,
         location: SourceRange,
-        id: AstId,
     },
     LiteralArray {
         elements: Option<Box<AstStatement>>, // expression-list
         location: SourceRange,
-        id: AstId,
     },
     CastStatement {
         target: Box<AstStatement>,
         type_name: String,
         location: SourceRange,
-        id: AstId,
     },
     MultipliedStatement {
         multiplier: u32,
         element: Box<AstStatement>,
         location: SourceRange,
-        id: AstId,
     },
     // Expressions
     QualifiedReference {
         elements: Vec<AstStatement>,
-        id: AstId,
     },
     Reference {
         name: String,
         location: SourceRange,
-        id: AstId,
     },
     ArrayAccess {
         reference: Box<AstStatement>,
         access: Box<AstStatement>,
-        id: AstId,
     },
     PointerAccess {
         reference: Box<AstStatement>,
-        id: AstId,
     },
     DirectAccess {
         access: DirectAccessType,
         index: Box<AstStatement>,
         location: SourceRange,
-        id: AstId,
     },
     HardwareAccess {
         direction: HardwareAccessType,
         access: DirectAccessType,
         address: Vec<AstStatement>,
         location: SourceRange,
-        id: AstId,
     },
     BinaryExpression {
         operator: Operator,
         left: Box<AstStatement>,
         right: Box<AstStatement>,
-        id: AstId,
     },
     UnaryExpression {
         operator: Operator,
         value: Box<AstStatement>,
         location: SourceRange,
-        id: AstId,
     },
     ExpressionList {
         expressions: Vec<AstStatement>,
-        id: AstId,
     },
     RangeStatement {
         start: Box<AstStatement>,
         end: Box<AstStatement>,
-        id: AstId,
     },
     // Assignment
     Assignment {
         left: Box<AstStatement>,
         right: Box<AstStatement>,
-        id: AstId,
     },
     // OutputAssignment
     OutputAssignment {
         left: Box<AstStatement>,
         right: Box<AstStatement>,
-        id: AstId,
     },
     //Call Statement
     CallStatement {
         operator: Box<AstStatement>,
         parameters: Box<Option<AstStatement>>,
         location: SourceRange,
-        id: AstId,
     },
     // Control Statements
     IfStatement {
         blocks: Vec<ConditionalBlock>,
         else_block: Vec<AstStatement>,
         location: SourceRange,
-        id: AstId,
     },
     ForLoopStatement {
         counter: Box<AstStatement>,
@@ -872,47 +858,38 @@ pub enum AstStatement {
         by_step: Option<Box<AstStatement>>,
         body: Vec<AstStatement>,
         location: SourceRange,
-        id: AstId,
     },
     WhileLoopStatement {
         condition: Box<AstStatement>,
         body: Vec<AstStatement>,
         location: SourceRange,
-        id: AstId,
     },
     RepeatLoopStatement {
         condition: Box<AstStatement>,
         body: Vec<AstStatement>,
         location: SourceRange,
-        id: AstId,
     },
     CaseStatement {
         selector: Box<AstStatement>,
         case_blocks: Vec<ConditionalBlock>,
         else_block: Vec<AstStatement>,
         location: SourceRange,
-        id: AstId,
     },
     CaseCondition {
         condition: Box<AstStatement>,
-        id: AstId,
     },
     ExitStatement {
         location: SourceRange,
-        id: AstId,
     },
     ContinueStatement {
         location: SourceRange,
-        id: AstId,
     },
     ReturnStatement {
         location: SourceRange,
-        id: AstId,
     },
     LiteralNull {
         location: SourceRange,
-        id: AstId,
-    },
+    }
 }
 
 impl Debug for AstStatement {
