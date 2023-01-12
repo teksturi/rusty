@@ -14,8 +14,8 @@ pub mod tests {
         lexer::{self, IdProvider},
         parser,
         resolver::{const_evaluator::evaluate_constants, AnnotationMapImpl, AstAnnotations, TypeAnnotator},
-        typesystem::get_builtin_types,
-        DebugLevel, SourceContainer, Validator,
+        typesystem::{get_builtin_types, self},
+        DebugLevel, SourceContainer, Validator, parse_and_index, SourceCode,
     };
 
     ///a Diagnostic reporter that holds all diagnostics in a list
@@ -77,12 +77,21 @@ pub mod tests {
         let mut index = Index::default();
         //Import builtins
         let builtins = builtins::parse_built_ins(id_provider.clone());
-
         index.import(index::visitor::visit(&builtins));
+
         // import built-in types like INT, BOOL, etc.
         for data_type in get_builtin_types() {
             index.register_type(data_type);
         }
+
+        let iec_source = SourceCode{
+            path: "<internal>".into(),
+            source: typesystem::iec61131_types::get_alias_types()
+        };
+        
+        let iec_index = parse_and_index(vec![iec_source], None, &id_provider, &mut Diagnostician::null_diagnostician(), ast::LinkageType::BuiltIn)
+            .map(|(idx,_)| idx).unwrap();
+        index.import(iec_index);
 
         let (mut unit, ..) = parser::parse(
             lexer::lex_with_ids(src, id_provider.clone(), SourceRangeFactory::internal()),
@@ -91,6 +100,8 @@ pub mod tests {
         );
         ast::pre_process(&mut unit, id_provider);
         index.import(index::visitor::visit(&unit));
+
+        index.resolve_alias_types();
         (unit, index)
     }
 

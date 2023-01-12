@@ -1,0 +1,68 @@
+---
+source: src/hardware_binding.rs
+assertion_line: 252
+expression: res
+---
+{
+  "HardwareConfiguration": [
+    [
+      {
+        "name": "gFb.a",
+        "direction": "Input",
+        "type": "Template",
+        "address": []
+      }
+    ],
+    [
+      {
+        "name": "gFb.b",
+        "direction": "Output",
+        "type": "Word",
+        "address": [
+          "2",
+          "5"
+        ]
+      }
+    ],
+    [
+      {
+        "name": "gFb.c",
+        "direction": "Output",
+        "type": "Word",
+        "address": [
+          "2",
+          "5"
+        ]
+      }
+    ],
+    [
+      {
+        "name": "gFb.x",
+        "direction": "Output",
+        "type": "Template",
+        "address": []
+      }
+    ],
+    [
+      {
+        "name": "gFb.y",
+        "direction": "Output",
+        "type": "Word",
+        "address": [
+          "1"
+        ]
+      }
+    ],
+    [
+      {
+        "name": "gFb.z",
+        "direction": "Input",
+        "type": "Word",
+        "address": [
+          "1",
+          "2"
+        ]
+      }
+    ]
+  ]
+}

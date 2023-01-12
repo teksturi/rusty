@@ -1,0 +1,132 @@
+---
+source: src/index/tests/instance_resolver_tests.rs
+assertion_line: 148
+expression: "index.find_instances().collect::<Vec<Instance<'_>>>()"
+---
+[
+    (
+        ExpressionPath {
+            names: [
+                Name(
+                    "MainProg",
+                ),
+            ],
+        },
+        VariableIndexEntry {
+            name: "MainProg_instance",
+            qualified_name: "MainProg",
+            initial_value: None,
+            variable_type: ByVal(
+                Global,
+            ),
+            is_constant: false,
+            data_type_name: "MainProg",
+            location_in_parent: 0,
+            linkage: Internal,
+            binding: None,
+            source_location: SymbolLocation {
+                line_number: 6,
+                source_range: SourceRange {
+                    range: 99..107,
+                },
+            },
+            varargs: None,
+        },
+    ),
+    (
+        ExpressionPath {
+            names: [
+                Name(
+                    "MainProg",
+                ),
+                Name(
+                    "aFb",
+                ),
+            ],
+        },
+        VariableIndexEntry {
+            name: "aFb",
+            qualified_name: "MainProg.aFb",
+            initial_value: None,
+            variable_type: ByVal(
+                Local,
+            ),
+            is_constant: false,
+            data_type_name: "__MainProg_aFb",
+            location_in_parent: 0,
+            linkage: Internal,
+            binding: None,
+            source_location: SymbolLocation {
+                line_number: 8,
+                source_range: SourceRange {
+                    range: 124..127,
+                },
+            },
+            varargs: None,
+        },
+    ),
+    (
+        ExpressionPath {
+            names: [
+                Name(
+                    "MainProg",
+                ),
+                Name(
+                    "aFb1",
+                ),
+            ],
+        },
+        VariableIndexEntry {
+            name: "aFb1",
+            qualified_name: "MainProg.aFb1",
+            initial_value: None,
+            variable_type: ByVal(
+                Local,
+            ),
+            is_constant: false,
+            data_type_name: "__MainProg_aFb1",
+            location_in_parent: 1,
+            linkage: Internal,
+            binding: None,
+            source_location: SymbolLocation {
+                line_number: 9,
+                source_range: SourceRange {
+                    range: 157..161,
+                },
+            },
+            varargs: None,
+        },
+    ),
+    (
+        ExpressionPath {
+            names: [
+                Name(
+                    "MainProg",
+                ),
+                Name(
+                    "aFb3",
+                ),
+            ],
+        },
+        VariableIndexEntry {
+            name: "aFb3",
+            qualified_name: "MainProg.aFb3",
+            initial_value: None,
+            variable_type: ByVal(
+                Local,
+            ),
+            is_constant: false,
+            data_type_name: "__MainProg_aFb3",
+            location_in_parent: 2,
+            linkage: Internal,
+            binding: None,
+            source_location: SymbolLocation {
+                line_number: 10,
+                source_range: SourceRange {
+                    range: 196..200,
+                },
+            },
+            varargs: None,
+        },
+    ),
+]

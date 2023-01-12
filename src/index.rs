@@ -728,6 +728,23 @@ impl TypeIndex {
             _ => Some(data_type),
         }
     }
+
+    pub fn resolve_alias_types(&self) -> TypeIndex {
+        let mut type_index = TypeIndex::default();
+        for alias in self.types.values() {
+            if let Some(resolved_alias) = self.find_effective_type(alias) {
+                type_index.types.insert(alias.get_name().into(), resolved_alias.clone_with_new_name(alias.get_name().into()));
+            }else{
+                println!("whoops {:}", alias.get_name());
+                type_index.types.insert(alias.get_name().into(), alias.clone());
+            }
+        }
+
+        for pou in self.pou_types.values() {
+                type_index.pou_types.insert(pou.get_name().into(), pou.clone());
+        }
+        type_index
+    }
 }
 
 /// The global index of the rusty-compiler
@@ -874,6 +891,10 @@ impl Index {
 
         //Constant expressions are intentionally not imported
         // self.constant_expressions.import(other.constant_expressions)
+    }
+
+    pub fn resolve_alias_types(&mut self) {
+        self.type_index = self.type_index.resolve_alias_types();
     }
 
     fn transfer_constants(

@@ -43,7 +43,19 @@ pub const LREAL_SIZE: u32 = (size_of::<NativeLrealType>() * 8) as u32;
 pub const DATE_TIME_SIZE: u32 = 64;
 pub const POINTER_SIZE: u32 = NativePointerType::BITS as u32;
 
-pub const U1_TYPE: &str = "__U1";
+pub const U1_TYPE: &str = "UINT1";
+pub const U8_TYPE: &str = "UINT8";
+pub const U16_TYPE: &str = "UINT16";
+pub const U32_TYPE: &str = "UINT32";
+pub const U64_TYPE: &str = "UINT64";
+pub const I8_TYPE: &str = "INT8";
+pub const I16_TYPE: &str = "INT16";
+pub const I32_TYPE: &str = "INT32";
+pub const I64_TYPE: &str = "INT64";
+
+pub const F32_TYPE: &str = "REAL32";
+pub const F64_TYPE: &str = "REAL64";
+
 /// used internally for forced casts to u1
 pub const BOOL_TYPE: &str = "BOOL";
 pub const BYTE_TYPE: &str = "BYTE";
@@ -81,6 +93,8 @@ pub const WSTRING_TYPE: &str = "WSTRING";
 pub const CHAR_TYPE: &str = "CHAR";
 pub const WCHAR_TYPE: &str = "WCHAR";
 pub const VOID_TYPE: &str = "VOID";
+
+pub mod iec61131_types;
 
 #[cfg(test)]
 mod tests;
@@ -129,6 +143,16 @@ impl DataType {
     /// returns true if this type is an array, struct or string
     pub fn is_aggregate_type(&self) -> bool {
         self.get_type_information().is_agregate()
+    }
+
+    pub fn clone_with_new_name(&self, new_name: String) -> DataType {
+        DataType {
+            name: new_name.clone(),
+            initial_value: self.initial_value,
+            information: self.information.clone_with_new_name(new_name),
+            nature: self.nature,
+            location: self.location.clone(),
+        }
     }
 }
 
@@ -467,6 +491,29 @@ impl DataTypeInformation {
                 | DataTypeInformation::String { .. }
         )
     }
+
+    fn clone_with_new_name(&self, new_name: String) -> DataTypeInformation {
+        let mut cpy = self.clone();
+        cpy.set_name(new_name);
+        cpy
+    }
+
+    fn set_name(&mut self, new_name: String) {
+        match self {
+            DataTypeInformation::Struct { ref mut name, .. } 
+            | DataTypeInformation::Array { ref mut name, ..}
+            | DataTypeInformation::Pointer { ref mut name, ..}
+            | DataTypeInformation::Integer { ref mut name, ..}
+            | DataTypeInformation::Enum { ref mut name, ..}
+            | DataTypeInformation::Float { ref mut name, ..}
+            // | DataTypeInformation::String { ref mut name, ..}
+            | DataTypeInformation::SubRange { ref mut name, ..}
+            | DataTypeInformation::Alias { ref mut name, ..}
+            | DataTypeInformation::Generic { ref mut name, ..} => *name = new_name,
+            DataTypeInformation::Void => {},
+            DataTypeInformation::String {  .. } => {},
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -517,6 +564,23 @@ impl<'a> DataTypeInformationProvider<'a> for &'a DataType {
     }
 }
 
+macro_rules! int_type {
+    ($name:expr, $size:expr, $signed:expr) => {
+        DataType {
+            name: $name,
+            initial_value: None,
+            information: DataTypeInformation::Integer {
+                name: $name,
+                signed: $signed,
+                size: $size,
+                semantic_size: None,
+            },
+            nature: TypeNature::Any,
+            location: SymbolLocation::internal(),
+        }
+    };
+}
+
 pub fn get_builtin_types() -> Vec<DataType> {
     vec![
         DataType {
@@ -526,18 +590,15 @@ pub fn get_builtin_types() -> Vec<DataType> {
             nature: TypeNature::Any,
             location: SymbolLocation::internal(),
         },
-        DataType {
-            name: U1_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::Integer {
-                name: U1_TYPE.into(),
-                signed: false,
-                size: U1_SIZE,
-                semantic_size: None,
-            },
-            nature: TypeNature::Any,
-            location: SymbolLocation::internal(),
-        },
+        int_type!(U1_TYPE.into(), 1, false),
+        int_type!(U8_TYPE.into(), 8, false),
+        int_type!(U16_TYPE.into(), 16, false),
+        int_type!(U32_TYPE.into(), 32, false),
+        int_type!(U64_TYPE.into(), 64, false),
+        int_type!(I8_TYPE.into(), 8, true),
+        int_type!(I16_TYPE.into(), 16, true),
+        int_type!(I32_TYPE.into(), 32, true),
+        int_type!(I64_TYPE.into(), 64, true),
         DataType {
             name: BOOL_TYPE.into(),
             initial_value: None,
@@ -551,208 +612,16 @@ pub fn get_builtin_types() -> Vec<DataType> {
             location: SymbolLocation::internal(),
         },
         DataType {
-            name: BYTE_TYPE.into(),
+            name: F32_TYPE.into(),
             initial_value: None,
-            information: DataTypeInformation::Integer {
-                name: BYTE_TYPE.into(),
-                signed: false,
-                size: BYTE_SIZE,
-                semantic_size: None,
-            },
-            nature: TypeNature::Bit,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: SINT_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::Integer {
-                name: SINT_TYPE.into(),
-                signed: true,
-                size: SINT_SIZE,
-                semantic_size: None,
-            },
-            nature: TypeNature::Signed,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: USINT_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::Integer {
-                name: USINT_TYPE.into(),
-                signed: false,
-                size: SINT_SIZE,
-                semantic_size: None,
-            },
-            nature: TypeNature::Unsigned,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: WORD_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::Integer {
-                name: WORD_TYPE.into(),
-                signed: false,
-                size: INT_SIZE,
-                semantic_size: None,
-            },
-            nature: TypeNature::Bit,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: INT_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::Integer {
-                name: INT_TYPE.into(),
-                signed: true,
-                size: INT_SIZE,
-                semantic_size: None,
-            },
-            nature: TypeNature::Signed,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: UINT_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::Integer {
-                name: UINT_TYPE.into(),
-                signed: false,
-                size: INT_SIZE,
-                semantic_size: None,
-            },
-            nature: TypeNature::Unsigned,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: DWORD_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::Integer {
-                name: DWORD_TYPE.into(),
-                signed: false,
-                size: DINT_SIZE,
-                semantic_size: None,
-            },
-            nature: TypeNature::Bit,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: DINT_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::Integer {
-                name: DINT_TYPE.into(),
-                signed: true,
-                size: DINT_SIZE,
-                semantic_size: None,
-            },
-            nature: TypeNature::Signed,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: UDINT_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::Integer {
-                name: UDINT_TYPE.into(),
-                signed: false,
-                size: DINT_SIZE,
-                semantic_size: None,
-            },
-            nature: TypeNature::Unsigned,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: LWORD_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::Integer {
-                name: LWORD_TYPE.into(),
-                signed: false,
-                size: LINT_SIZE,
-                semantic_size: None,
-            },
-            nature: TypeNature::Bit,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: LINT_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::Integer {
-                name: LINT_TYPE.into(),
-                signed: true,
-                size: LINT_SIZE,
-                semantic_size: None,
-            },
-            nature: TypeNature::Signed,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: DATE_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::Integer {
-                name: DATE_TYPE.into(),
-                signed: true,
-                size: DATE_TIME_SIZE,
-                semantic_size: None,
-            },
-            nature: TypeNature::Date,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: TIME_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::Integer {
-                name: TIME_TYPE.into(),
-                signed: true,
-                size: DATE_TIME_SIZE,
-                semantic_size: None,
-            },
-            nature: TypeNature::Duration,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: DATE_AND_TIME_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::Integer {
-                name: DATE_AND_TIME_TYPE.into(),
-                signed: true,
-                size: DATE_TIME_SIZE,
-                semantic_size: None,
-            },
-            nature: TypeNature::Date,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: TIME_OF_DAY_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::Integer {
-                name: TIME_OF_DAY_TYPE.into(),
-                signed: true,
-                size: DATE_TIME_SIZE,
-                semantic_size: None,
-            },
-            nature: TypeNature::Date,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: ULINT_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::Integer {
-                name: ULINT_TYPE.into(),
-                signed: false,
-                size: LINT_SIZE,
-                semantic_size: None,
-            },
-            nature: TypeNature::Unsigned,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: REAL_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::Float { name: REAL_TYPE.into(), size: REAL_SIZE },
+            information: DataTypeInformation::Float { name: F32_TYPE.into(), size: 32 },
             nature: TypeNature::Real,
             location: SymbolLocation::internal(),
         },
         DataType {
-            name: LREAL_TYPE.into(),
+            name: F64_TYPE.into(),
             initial_value: None,
-            information: DataTypeInformation::Float { name: LREAL_TYPE.into(), size: LREAL_SIZE },
+            information: DataTypeInformation::Float { name: F64_TYPE.into(), size: 64 },
             nature: TypeNature::Real,
             location: SymbolLocation::internal(),
         },
@@ -774,126 +643,6 @@ pub fn get_builtin_types() -> Vec<DataType> {
                 encoding: StringEncoding::Utf16,
             },
             nature: TypeNature::String,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: SHORT_DATE_AND_TIME_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::Alias {
-                name: SHORT_DATE_AND_TIME_TYPE.into(),
-                referenced_type: DATE_AND_TIME_TYPE.into(),
-            },
-            nature: TypeNature::Date,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: LONG_DATE_AND_TIME_TYPE_SHORTENED.into(),
-            initial_value: None,
-            information: DataTypeInformation::Alias {
-                name: LONG_DATE_AND_TIME_TYPE_SHORTENED.into(),
-                referenced_type: DATE_AND_TIME_TYPE.into(),
-            },
-            nature: TypeNature::Date,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: LONG_DATE_AND_TIME_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::Alias {
-                name: LONG_DATE_AND_TIME_TYPE.into(),
-                referenced_type: DATE_AND_TIME_TYPE.into(),
-            },
-            nature: TypeNature::Date,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: SHORT_DATE_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::Alias {
-                name: SHORT_DATE_TYPE.into(),
-                referenced_type: DATE_TYPE.into(),
-            },
-            nature: TypeNature::Date,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: LONG_DATE_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::Alias {
-                name: LONG_DATE_TYPE.into(),
-                referenced_type: DATE_TYPE.into(),
-            },
-            nature: TypeNature::Date,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: LONG_DATE_TYPE_SHORTENED.into(),
-            initial_value: None,
-            information: DataTypeInformation::Alias {
-                name: LONG_DATE_TYPE_SHORTENED.into(),
-                referenced_type: DATE_TYPE.into(),
-            },
-            nature: TypeNature::Date,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: SHORT_TIME_OF_DAY_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::Alias {
-                name: SHORT_TIME_OF_DAY_TYPE.into(),
-                referenced_type: TIME_OF_DAY_TYPE.into(),
-            },
-            nature: TypeNature::Date,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: LONG_TIME_OF_DAY_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::Alias {
-                name: LONG_TIME_OF_DAY_TYPE.into(),
-                referenced_type: TIME_OF_DAY_TYPE.into(),
-            },
-            nature: TypeNature::Date,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: LONG_TIME_OF_DAY_TYPE_SHORTENED.into(),
-            initial_value: None,
-            information: DataTypeInformation::Alias {
-                name: LONG_TIME_OF_DAY_TYPE_SHORTENED.into(),
-                referenced_type: TIME_OF_DAY_TYPE.into(),
-            },
-            nature: TypeNature::Date,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: SHORT_TIME_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::Alias {
-                name: SHORT_TIME_TYPE.into(),
-                referenced_type: TIME_TYPE.into(),
-            },
-            nature: TypeNature::Duration,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: LONG_TIME_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::Alias {
-                name: LONG_TIME_TYPE.into(),
-                referenced_type: TIME_TYPE.into(),
-            },
-            nature: TypeNature::Duration,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: LONG_TIME_TYPE_SHORTENED.into(),
-            initial_value: None,
-            information: DataTypeInformation::Alias {
-                name: LONG_TIME_TYPE_SHORTENED.into(),
-                referenced_type: TIME_TYPE.into(),
-            },
-            nature: TypeNature::Duration,
             location: SymbolLocation::internal(),
         },
         DataType {

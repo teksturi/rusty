@@ -517,6 +517,8 @@ fn index_module<T: SourceContainer>(
 
     // ### PHASE 1 ###
     // parse & index everything
+
+    full_index.import(parse_and_index_iec61131_3_types(&id_provider, diagnostician)?);
     let (index, mut units) =
         parse_and_index(sources, encoding, &id_provider, diagnostician, LinkageType::Internal)?;
     full_index.import(index);
@@ -590,6 +592,7 @@ pub fn compile_module<'c, T: SourceContainer>(
     debug_level: DebugLevel,
 ) -> Result<(Index, CodeGen<'c>), Diagnostic> {
     let module_location = sources.get(0).map(|it| it.get_location()).unwrap_or("").to_owned();
+
     let (full_index, mut index) = index_module(sources, includes, encoding, &mut diagnostician)?;
 
     let annotations = AstAnnotations::new(index.all_annotations, index.id_provider.next_id());
@@ -610,6 +613,20 @@ pub fn compile_module<'c, T: SourceContainer>(
     Ok((full_index, code_generator))
 }
 
+pub fn parse_and_index_iec61131_3_types(
+    id_provider: &IdProvider,
+    diagnostician: &mut Diagnostician,
+) -> Result<Index, Diagnostic> {
+    let alias_types = typesystem::iec61131_types::get_alias_types();
+    parse_and_index(
+        vec![SourceCode { path: "<internal>".into(), source: alias_types }],
+        None,
+        id_provider,
+        diagnostician,
+        LinkageType::BuiltIn,
+    ).map(|(index, _)| index)
+}
+
 type Units = Vec<(Vec<Diagnostic>, CompilationUnit)>;
 fn parse_and_index<T: SourceContainer>(
     source: Vec<T>,
@@ -621,7 +638,6 @@ fn parse_and_index<T: SourceContainer>(
     let mut index = Index::default();
 
     let mut units = Vec::new();
-
     for container in source {
         let location = static_str(container.get_location().to_string());
         let e = container
