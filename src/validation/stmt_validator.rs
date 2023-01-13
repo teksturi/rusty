@@ -215,7 +215,26 @@ impl StatementValidator {
             },
             _ => (),
         }
+        self.validate_type_compatibility(statement, context);
         self.validate_type_nature(statement, context);
+    }
+
+    /// Validates that the assigned type and type hint are compatible with each other for this
+    /// statement
+    fn validate_type_compatibility(&mut self, statement: &AstStatement, context: &ValidationContext) {
+        let statement_type = context.ast_annotation.get_type(statement, context.index).map(|it|it.get_type_information());
+        if let Some((expected_type, actual_type)) = context
+            .ast_annotation
+            .get_type_hint(statement, context.index).map(|it|it.get_type_information())
+            .or(statement_type)
+            .zip(statement_type)
+        {
+            //lets see if type and hint are compatible
+            let (expected_variant, actual_variant) = (std::mem::discriminant(expected_type), std::mem::discriminant(actual_type));
+            if expected_variant != actual_variant {
+                self.push_diagnostic(Diagnostic::invalid_type_nature(actual_type.get_name(), expected_type.get_name(), statement.get_location()));
+            }
+        }
     }
 
     /// Validates that the assigned type and type hint are compatible with the nature for this

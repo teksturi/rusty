@@ -99,3 +99,35 @@ fn array_initialization_validation() {
         ]
     );
 }
+
+#[test]
+fn array_initialization_validation_XXX() {
+    let diagnostics = parse_and_validate(
+        "
+		FUNCTION main : DINT
+		VAR
+			x	 : myStruct;
+			y : ARRAY[0..3] OF DINT;
+			z : DINT;
+		END_VAR
+			x := (var1 := 1, var2 := z); // var2 missing `(`
+			y := z;
+			y := 3;
+			x := 'abc';
+		END_FUNCTION
+		
+		TYPE myStruct : STRUCT
+				var1 : DINT;
+				var2 : ARRAY[1..2] OF DINT;
+			END_STRUCT
+		END_TYPE
+       ",
+    );
+
+    assert_eq!(
+        diagnostics,
+        vec![
+        ]
+    );
+}
+
