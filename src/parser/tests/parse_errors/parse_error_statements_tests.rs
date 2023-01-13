@@ -972,6 +972,7 @@ fn pointer_type_without_to_test() {
         location: SourceRange::undefined(),
         initializer: None,
         scope: None,
+        nature_override: None,
     };
     assert_eq!(format!("{:#?}", expected), format!("{:#?}", pointer_type).as_str());
 
@@ -1007,6 +1008,7 @@ fn pointer_type_with_wrong_keyword_to_test() {
         location: SourceRange::undefined(),
         initializer: None,
         scope: None,
+        nature_override: None,
     };
     assert_eq!(format!("{:#?}", expected), format!("{:#?}", pointer_type).as_str());
     assert_eq!(

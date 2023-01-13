@@ -57,6 +57,27 @@ fn undefined_pragmas_are_ignored_by_the_lexer() {
 }
 
 #[test]
+fn typenature_pragmas_are_parsed() {
+    let mut lexer = lex(r"
+        {nature_signed}{nature_unsigned}{nature_duration}{nature_date}{nature_bit}{nature_real}
+        ");
+
+    let expected = vec![
+        PropertyNatureSigned,
+        PropertyNatureUnsigned,
+        PropertyNatureDuration,
+        PropertyNatureDate,
+        PropertyNatureBit,
+        PropertyNatureReal,
+    ];
+
+    for prop in expected {
+        assert_eq!(lexer.token, prop, "Token : {}", lexer.slice());
+        lexer.advance();
+    }
+}
+
+#[test]
 fn registered_pragmas_parsed() {
     let mut lexer = lex(r"
         {external}{ref}{sized}{not_registerd}

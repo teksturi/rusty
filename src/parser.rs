@@ -508,6 +508,7 @@ fn parse_type(lexer: &mut ParseSession) -> Vec<UserTypeDeclaration> {
 
     parse_any_in_region(lexer, vec![KeywordEndType], |lexer| {
         let mut declarations = vec![];
+        let nature_override = parse_nature_override(lexer);
         while !lexer.closes_open_region(&lexer.token) {
             let name = lexer.slice_and_advance();
             let name_location = lexer.last_location();
@@ -521,11 +522,30 @@ fn parse_type(lexer: &mut ParseSession) -> Vec<UserTypeDeclaration> {
                     initializer,
                     location: name_location,
                     scope: lexer.scope.clone(),
+                    nature_override,
                 });
             }
         }
         declarations
     })
+}
+
+fn parse_nature_override(lexer: &mut ParseSession) -> Option<TypeNature> {
+    if lexer.allow(&PropertyNatureBit) {
+        Some(TypeNature::Bit)
+    } else if lexer.allow(&PropertyNatureDate) {
+        Some(TypeNature::Date)
+    } else if lexer.allow(&PropertyNatureDuration) {
+        Some(TypeNature::Duration)
+    } else if lexer.allow(&PropertyNatureSigned) {
+        Some(TypeNature::Signed)
+    } else if lexer.allow(&PropertyNatureUnsigned) {
+        Some(TypeNature::Unsigned)
+    } else if lexer.allow(&PropertyNatureReal) {
+        Some(TypeNature::Real)
+    } else {
+        None
+    }
 }
 
 type DataTypeWithInitializer = (DataTypeDeclaration, Option<AstStatement>);

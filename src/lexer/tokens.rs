@@ -22,6 +22,24 @@ pub enum Token {
     #[token("{sized}")]
     PropertySized,
 
+    #[token("{nature_signed}")]
+    PropertyNatureSigned,
+
+    #[token("{nature_unsigned}")]
+    PropertyNatureUnsigned,
+
+    #[token("{nature_date}")]
+    PropertyNatureDate,
+
+    #[token("{nature_duration}")]
+    PropertyNatureDuration,
+
+    #[token("{nature_bit}")]
+    PropertyNatureBit,
+
+    #[token("{nature_real}")]
+    PropertyNatureReal,
+
     #[token("PROGRAM", ignore(case))]
     KeywordProgram,
 

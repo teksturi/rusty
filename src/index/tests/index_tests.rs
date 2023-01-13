@@ -728,6 +728,7 @@ fn pre_processing_generates_inline_pointers() {
         location: SourceRange::undefined(),
         initializer: None,
         scope: Some("foo".into()),
+        nature_override: None,
     };
     assert_eq!(format!("{:?}", expected), format!("{:?}", new_pointer_type));
 
@@ -765,6 +766,7 @@ fn pre_processing_generates_pointer_to_pointer_type() {
         location: SourceRange::undefined(),
         initializer: None,
         scope: None,
+        nature_override: None,
     };
     assert_eq!(format!("{:?}", expected), format!("{:?}", new_pointer_type));
 
@@ -781,6 +783,7 @@ fn pre_processing_generates_pointer_to_pointer_type() {
         location: SourceRange::undefined(),
         initializer: None,
         scope: None,
+        nature_override: None,
     };
     assert_eq!(format!("{:?}", expected), format!("{:?}", original));
 }
@@ -813,6 +816,7 @@ fn pre_processing_generates_inline_pointer_to_pointer() {
         location: SourceRange::undefined(),
         initializer: None,
         scope: Some("foo".into()),
+        nature_override: None,
     };
     assert_eq!(format!("{:?}", expected), format!("{:?}", new_pointer_type));
 
@@ -829,6 +833,7 @@ fn pre_processing_generates_inline_pointer_to_pointer() {
         location: SourceRange::undefined(),
         initializer: None,
         scope: Some("foo".into()),
+        nature_override: None,
     };
     assert_eq!(format!("{:?}", expected), format!("{:?}", new_pointer_type));
 
@@ -882,6 +887,7 @@ fn pre_processing_generates_inline_arrays() {
         initializer: None,
         location: (59..77).into(),
         scope: Some("foo".into()),
+        nature_override: None,
     };
     assert_eq!(format!("{:?}", expected), format!("{:?}", new_array_type));
 
@@ -937,6 +943,7 @@ fn pre_processing_generates_inline_array_of_array() {
         initializer: None,
         location: (59..92).into(),
         scope: Some("foo".into()),
+        nature_override: None,
     };
     assert_eq!(format!("{:?}", expected), format!("{:?}", new_array_type));
 
@@ -966,6 +973,7 @@ fn pre_processing_generates_inline_array_of_array() {
         initializer: None,
         location: (59..92).into(),
         scope: Some("foo".into()),
+        nature_override: None,
     };
     assert_eq!(format!("{:?}", expected), format!("{:?}", new_array_type));
 
@@ -1006,6 +1014,7 @@ fn pre_processing_generates_array_of_array_type() {
         location: SourceRange::undefined(),
         initializer: None,
         scope: None,
+        nature_override: None,
     };
     assert_eq!(format!("{:?}", expected), format!("{:?}", new_type));
 
@@ -1027,6 +1036,7 @@ fn pre_processing_generates_array_of_array_type() {
         location: SourceRange::undefined(),
         initializer: None,
         scope: None,
+        nature_override: None,
     };
     assert_eq!(format!("{:?}", expected), format!("{:?}", original));
 }
@@ -1071,6 +1081,7 @@ fn pre_processing_nested_array_in_struct() {
         initializer: None,
         location: (14..97).into(),
         scope: None,
+        nature_override: None,
     };
     assert_eq!(format!("{:?}", expected), format!("{:?}", new_array_type));
 
@@ -1100,6 +1111,7 @@ fn pre_processing_nested_array_in_struct() {
         initializer: None,
         location: (59..77).into(),
         scope: None,
+        nature_override: None,
     };
     assert_eq!(format!("{:?}", expected), format!("{:?}", new_array_type));
 }
@@ -1145,6 +1157,7 @@ fn pre_processing_generates_inline_array_of_array_of_array() {
         initializer: None,
         location: (74..107).into(),
         scope: Some("foo".into()),
+        nature_override: None,
     };
     assert_eq!(format!("{:?}", expected), format!("{:?}", new_array_type));
 
@@ -1174,6 +1187,7 @@ fn pre_processing_generates_inline_array_of_array_of_array() {
         initializer: None,
         location: (59..107).into(),
         scope: Some("foo".into()),
+        nature_override: None,
     };
     assert_eq!(format!("{:?}", expected), format!("{:?}", new_array_type));
 
@@ -1203,6 +1217,7 @@ fn pre_processing_generates_inline_array_of_array_of_array() {
         initializer: None,
         location: (59..107).into(),
         scope: Some("foo".into()),
+        nature_override: None,
     };
     assert_eq!(format!("{:?}", expected), format!("{:?}", new_array_type));
 
@@ -1241,6 +1256,7 @@ fn pre_processing_generates_generic_types() {
         initializer: None,
         location: SourceRange::undefined(),
         scope: Some("myFunc".into()),
+        nature_override: None,
     };
 
     assert_eq!(format!("{:?}", expected), format!("{:?}", ast.types[0]));
@@ -1275,6 +1291,7 @@ fn pre_processing_generates_nested_generic_types() {
         initializer: None,
         location: SourceRange::undefined(),
         scope: Some("myFunc".into()),
+        nature_override: None,
     };
 
     assert_eq!(format!("{:?}", expected), format!("{:?}", ast.types[0]));

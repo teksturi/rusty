@@ -536,6 +536,8 @@ fn index_module<T: SourceContainer>(
         parse_and_index(includes, encoding, &id_provider, diagnostician, LinkageType::External)?;
     full_index.import(includes_index);
     all_units.append(&mut includes_units);
+    //resolve all alias
+    full_index.resolve_alias_types();
 
     // ### PHASE 1.1 resolve constant literal values
     let (mut full_index, _unresolvables) = resolver::const_evaluator::evaluate_constants(full_index);
@@ -624,7 +626,8 @@ pub fn parse_and_index_iec61131_3_types(
         id_provider,
         diagnostician,
         LinkageType::BuiltIn,
-    ).map(|(index, _)| index)
+    )
+    .map(|(index, _)| index)
 }
 
 type Units = Vec<(Vec<Diagnostic>, CompilationUnit)>;

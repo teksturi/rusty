@@ -75,6 +75,7 @@ fn simple_struct_type_can_be_parsed() {
             initializer: None,
             location: SourceRange::undefined(),
             scope: None,
+            nature_override: None
         }
     );
     assert_eq!(ast_string, expected_ast);
@@ -160,6 +161,7 @@ fn type_alias_can_be_parsed() {
             initializer: None,
             location: SourceRange::undefined(),
             scope: None,
+            nature_override: None
         }
     );
 
@@ -202,6 +204,7 @@ fn array_type_can_be_parsed_test() {
             initializer: None,
             location: SourceRange::undefined(),
             scope: None,
+            nature_override: None
         }
     );
 
@@ -231,6 +234,7 @@ fn string_type_can_be_parsed_test() {
                 initializer: None,
                 location: SourceRange::undefined(),
                 scope: None,
+                nature_override: None
             },
             UserTypeDeclaration {
                 data_type: DataType::StringType {
@@ -246,6 +250,7 @@ fn string_type_can_be_parsed_test() {
                 }),
                 location: SourceRange::undefined(),
                 scope: None,
+                nature_override: None
             }
         ]
     );
@@ -274,6 +279,7 @@ fn wide_string_type_can_be_parsed_test() {
             initializer: None,
             location: SourceRange::undefined(),
             scope: None,
+            nature_override: None
         }
     );
 
@@ -380,6 +386,7 @@ fn pointer_type_test() {
         location: SourceRange::undefined(),
         initializer: None,
         scope: None,
+        nature_override: None,
     };
     assert_eq!(format!("{:#?}", expected), format!("{:#?}", pointer_type).as_str());
     assert_eq!(diagnostics.len(), 1);
@@ -411,6 +418,7 @@ fn ref_type_test() {
         location: SourceRange::undefined(),
         initializer: None,
         scope: None,
+        nature_override: None,
     };
     assert_eq!(format!("{:#?}", expected), format!("{:#?}", reference_type).as_str());
     assert_eq!(diagnostics.len(), 0)

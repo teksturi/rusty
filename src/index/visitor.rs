@@ -384,6 +384,7 @@ fn visit_data_type(
                             initializer: None,
                             location: SourceRange::undefined(),
                             scope: scope.clone(),
+                            nature_override: None,
                         },
                         symbol_location_factory,
                     )
@@ -480,7 +481,7 @@ fn visit_data_type(
                 name: name.to_string(),
                 initial_value: init,
                 information,
-                nature: TypeNature::Int,
+                nature: type_declaration.nature_override.unwrap_or(TypeNature::Int),
                 location: symbol_location_factory.create_symbol_location(&type_declaration.location),
             });
         }
@@ -536,7 +537,7 @@ fn visit_data_type(
                 name: name.to_string(),
                 initial_value: init1,
                 information,
-                nature: TypeNature::Any,
+                nature: type_declaration.nature_override.unwrap_or(TypeNature::Any),
                 location: symbol_location_factory.create_symbol_location(&type_declaration.location),
             });
             let global_init_name = crate::index::get_initializer_name(name);
@@ -569,7 +570,7 @@ fn visit_data_type(
                 name: name.to_string(),
                 initial_value: init,
                 information,
-                nature: TypeNature::Any,
+                nature: type_declaration.nature_override.unwrap_or(TypeNature::Any),
                 location: symbol_location_factory.create_symbol_location(&type_declaration.location),
             });
         }
@@ -612,7 +613,7 @@ fn visit_data_type(
                 name: name.to_string(),
                 initial_value: init,
                 information,
-                nature: TypeNature::String,
+                nature: type_declaration.nature_override.unwrap_or(TypeNature::String),
                 location: symbol_location_factory.create_symbol_location(&type_declaration.location),
             });
 
@@ -641,7 +642,7 @@ fn visit_data_type(
                 name: name.to_string(),
                 initial_value: None,
                 information,
-                nature: TypeNature::Any,
+                nature: type_declaration.nature_override.unwrap_or(TypeNature::Any),
                 location: symbol_location_factory.create_symbol_location(&type_declaration.location),
             });
         }

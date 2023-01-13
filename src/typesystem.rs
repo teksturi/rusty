@@ -107,6 +107,7 @@ pub struct DataType {
     pub information: DataTypeInformation,
     pub nature: TypeNature,
     pub location: SymbolLocation,
+
 }
 
 impl DataType {
@@ -145,12 +146,12 @@ impl DataType {
         self.get_type_information().is_agregate()
     }
 
-    pub fn clone_with_new_name(&self, new_name: String) -> DataType {
+    pub fn clone_with_new_name(&self, new_name: String, nature: TypeNature, initial_value: Option<ConstId>) -> DataType {
         DataType {
             name: new_name.clone(),
-            initial_value: self.initial_value,
+            initial_value,
             information: self.information.clone_with_new_name(new_name),
-            nature: self.nature,
+            nature,
             location: self.location.clone(),
         }
     }
@@ -500,7 +501,7 @@ impl DataTypeInformation {
 
     fn set_name(&mut self, new_name: String) {
         match self {
-            DataTypeInformation::Struct { ref mut name, .. } 
+            DataTypeInformation::Struct { ref mut name, .. }
             | DataTypeInformation::Array { ref mut name, ..}
             | DataTypeInformation::Pointer { ref mut name, ..}
             | DataTypeInformation::Integer { ref mut name, ..}
@@ -565,7 +566,7 @@ impl<'a> DataTypeInformationProvider<'a> for &'a DataType {
 }
 
 macro_rules! int_type {
-    ($name:expr, $size:expr, $signed:expr) => {
+    ($name:expr, $size:expr, $nature: expr, $signed:expr) => {
         DataType {
             name: $name,
             initial_value: None,
@@ -575,7 +576,7 @@ macro_rules! int_type {
                 size: $size,
                 semantic_size: None,
             },
-            nature: TypeNature::Any,
+            nature: $nature,
             location: SymbolLocation::internal(),
         }
     };
@@ -584,21 +585,21 @@ macro_rules! int_type {
 pub fn get_builtin_types() -> Vec<DataType> {
     vec![
         DataType {
-            name: "__VOID".into(),
+            name: "VOID".into(),
             initial_value: None,
             information: DataTypeInformation::Void,
             nature: TypeNature::Any,
             location: SymbolLocation::internal(),
         },
-        int_type!(U1_TYPE.into(), 1, false),
-        int_type!(U8_TYPE.into(), 8, false),
-        int_type!(U16_TYPE.into(), 16, false),
-        int_type!(U32_TYPE.into(), 32, false),
-        int_type!(U64_TYPE.into(), 64, false),
-        int_type!(I8_TYPE.into(), 8, true),
-        int_type!(I16_TYPE.into(), 16, true),
-        int_type!(I32_TYPE.into(), 32, true),
-        int_type!(I64_TYPE.into(), 64, true),
+        int_type!(U1_TYPE.into(), 1, TypeNature::Bit, false),
+        int_type!(U8_TYPE.into(), 8, TypeNature::Unsigned, false),
+        int_type!(U16_TYPE.into(), 16, TypeNature::Unsigned, false),
+        int_type!(U32_TYPE.into(), 32, TypeNature::Unsigned, false),
+        int_type!(U64_TYPE.into(), 64, TypeNature::Unsigned, false),
+        int_type!(I8_TYPE.into(), 8, TypeNature::Signed, true),
+        int_type!(I16_TYPE.into(), 16, TypeNature::Signed, true),
+        int_type!(I32_TYPE.into(), 32, TypeNature::Signed, true),
+        int_type!(I64_TYPE.into(), 64, TypeNature::Signed, true),
         DataType {
             name: BOOL_TYPE.into(),
             initial_value: None,

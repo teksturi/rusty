@@ -568,6 +568,7 @@ pub struct UserTypeDeclaration {
     pub location: SourceRange,
     /// stores the original scope for compiler-generated types
     pub scope: Option<String>,
+    pub nature_override: Option<TypeNature>,
 }
 
 impl Debug for UserTypeDeclaration {

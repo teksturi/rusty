@@ -312,6 +312,9 @@ impl<'ink, 'b> DataTypeGenerator<'ink, 'b> {
                 self.generate_initial_value_for_type(data_type, referenced_type)
             }
             //all other types (scalars, pointer and void)
+            _ if data_type.initial_value.is_some() => {
+                self.generate_initial_value_for_type(data_type, data_type.get_name())
+            }
             _ => Ok(None),
         }
     }

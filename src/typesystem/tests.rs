@@ -1,7 +1,7 @@
 use crate::{
     ast::{Operator, TypeNature},
     index::{symbol::SymbolLocation, Index},
-    test_utils::tests::index,
+    test_utils::{self, tests::index},
     typesystem::{
         self, get_equals_function_name_for, get_signed_type, Dimension, BOOL_TYPE, BYTE_TYPE, CHAR_TYPE,
         DATE_AND_TIME_TYPE, DATE_TYPE, DINT_TYPE, DWORD_TYPE, INT_TYPE, LINT_TYPE, LREAL_TYPE, LWORD_TYPE,
@@ -10,7 +10,7 @@ use crate::{
     },
 };
 
-use super::TypeSize;
+use super::{iec61131_types, TypeSize};
 
 macro_rules! assert_signed_type {
     ($expected:expr, $actual:expr, $index:expr) => {
@@ -308,10 +308,11 @@ fn get_bigger_size_mixed_test_no_() {
 }
 
 fn get_index() -> Index {
-    let mut index = Index::default();
+    let (_, mut index) = test_utils::tests::index(iec61131_types::get_alias_types().as_str());
     for t in typesystem::get_builtin_types() {
         index.register_type(t)
     }
+    index.resolve_alias_types();
     index
 }
 

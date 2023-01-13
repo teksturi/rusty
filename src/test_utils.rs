@@ -12,10 +12,10 @@ pub mod tests {
         diagnostics::{Diagnostic, DiagnosticReporter, Diagnostician, ResolvedDiagnostics},
         index::{self, Index},
         lexer::{self, IdProvider},
-        parser,
+        parse_and_index, parser,
         resolver::{const_evaluator::evaluate_constants, AnnotationMapImpl, AstAnnotations, TypeAnnotator},
-        typesystem::{get_builtin_types, self},
-        DebugLevel, SourceContainer, Validator, parse_and_index, SourceCode,
+        typesystem::{self, get_builtin_types},
+        DebugLevel, SourceCode, SourceContainer, Validator,
     };
 
     ///a Diagnostic reporter that holds all diagnostics in a list
@@ -84,13 +84,18 @@ pub mod tests {
             index.register_type(data_type);
         }
 
-        let iec_source = SourceCode{
-            path: "<internal>".into(),
-            source: typesystem::iec61131_types::get_alias_types()
-        };
-        
-        let iec_index = parse_and_index(vec![iec_source], None, &id_provider, &mut Diagnostician::null_diagnostician(), ast::LinkageType::BuiltIn)
-            .map(|(idx,_)| idx).unwrap();
+        let iec_source =
+            SourceCode { path: "<internal>".into(), source: typesystem::iec61131_types::get_alias_types() };
+
+        let iec_index = parse_and_index(
+            vec![iec_source],
+            None,
+            &id_provider,
+            &mut Diagnostician::null_diagnostician(),
+            ast::LinkageType::BuiltIn,
+        )
+        .map(|(idx, _)| idx)
+        .unwrap();
         index.import(iec_index);
 
         let (mut unit, ..) = parser::parse(
