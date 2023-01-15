@@ -713,7 +713,7 @@ fn pointer_expressions_resolve_types() {
     let (annotations, _) = TypeAnnotator::visit_unit(&index, &unit, id_provider);
     let statements = &unit.implementations[0].statements;
 
-    let expected_types = vec!["__PRG_i", "INT", "__PRG_y", "INT", "MyIntRef", "INT", "MyAliasRef", "INT"];
+    let expected_types = vec!["__PRG_i", "INT", "__PRG_y", "MyInt", "MyIntRef", "INT", "MyAliasRef", "MyInt"];
     let type_names: Vec<&str> =
         statements.iter().map(|s| annotations.get_type_or_void(s, &index).get_name()).collect();
 
@@ -763,11 +763,11 @@ fn array_expressions_resolve_types() {
         "__PRG_i",
         "INT",
         "__PRG_y",
-        "INT",
+        "MyInt",
         "MyIntArray",
         "INT",
         "MyAliasArray",
-        "INT",
+        "MyInt",
         "__PRG_z",
         "__PRG_z_",
     ];
@@ -1131,7 +1131,7 @@ fn qualified_expressions_to_aliased_structs_resolve_types() {
     let statements = &unit.implementations[0].statements;
 
     let expected_types =
-        vec!["MyStruct", "BYTE", "WORD", "DWORD", "LWORD", "NextStruct", "BYTE", "WORD", "DWORD", "LWORD"];
+        vec!["AliasedMyStruct", "BYTE", "WORD", "DWORD", "LWORD", "AliasedNextStruct", "BYTE", "WORD", "DWORD", "LWORD"];
     let type_names: Vec<&str> =
         statements.iter().map(|s| annotations.get_type_or_void(s, &index).get_name()).collect();
 
@@ -1237,8 +1237,8 @@ fn function_parameter_assignments_resolve_types() {
     let (annotations, _) = TypeAnnotator::visit_unit(&index, &unit, id_provider);
     let statements = &unit.implementations[1].statements;
 
-    assert_eq!(annotations.get_type_or_void(&statements[0], &index).get_name(), "INT");
-    assert_eq!(annotations.get(&statements[0]), Some(&StatementAnnotation::value("INT")));
+    assert_eq!(annotations.get_type_or_void(&statements[0], &index).get_name(), "MyType");
+    assert_eq!(annotations.get(&statements[0]), Some(&StatementAnnotation::value("MyType")));
     if let AstStatement::CallStatement { operator, parameters, .. } = &statements[0] {
         //make sure the call's operator resolved correctly
         assert_eq!(annotations.get_type_or_void(operator, &index).get_name(), VOID_TYPE);

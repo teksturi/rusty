@@ -146,13 +146,13 @@ impl DataType {
         self.get_type_information().is_agregate()
     }
 
-    pub fn clone_with_new_name(&self, new_name: String, nature: TypeNature, initial_value: Option<ConstId>) -> DataType {
+    pub fn clone_with_new_name(&self, new_name: String, nature: TypeNature, initial_value: Option<ConstId>, location: SymbolLocation) -> DataType {
         DataType {
             name: new_name.clone(),
             initial_value,
             information: self.information.clone_with_new_name(new_name),
             nature,
-            location: self.location.clone(),
+            location,
         }
     }
 }

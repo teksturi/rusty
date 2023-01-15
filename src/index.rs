@@ -728,38 +728,6 @@ impl TypeIndex {
             _ => Some(data_type),
         }
     }
-
-    pub fn resolve_alias_types(&self) -> TypeIndex {
-        let mut type_index = TypeIndex::default();
-        for alias in self.types.values() {
-            let mut current = alias;
-            let mut current_initial = alias.initial_value;
-
-            while let DataTypeInformation::Alias { referenced_type, .. } = current.get_type_information() {
-                current = self.find_type(referenced_type).unwrap_or(&type_index.void_type);
-                current_initial = current_initial.or(current.initial_value);
-            }
-
-            type_index.types.insert(
-                alias.get_name().to_lowercase(),
-                current.clone_with_new_name(alias.get_name().into(), alias.nature, current_initial),
-            );
-
-            // if let Some(resolved_alias) = self.find_effective_type(alias) {
-            //     type_index.types.insert(
-            //         alias.get_name().to_lowercase(),
-            //         resolved_alias.clone_with_new_name(alias.get_name().into(), alias.nature),
-            //     );
-            // } else {
-            //     type_index.types.insert(alias.get_name().to_lowercase(), alias.clone());
-            // }
-        }
-
-        for pou in self.pou_types.values() {
-            type_index.pou_types.insert(pou.get_name().to_lowercase(), pou.clone());
-        }
-        type_index
-    }
 }
 
 /// The global index of the rusty-compiler
@@ -909,7 +877,52 @@ impl Index {
     }
 
     pub fn resolve_alias_types(&mut self) {
-        self.type_index = self.type_index.resolve_alias_types();
+        let mut type_index = TypeIndex::default();
+        let mut new_struct_members: Vec<(String, Vec<VariableIndexEntry>)> = Vec::new();
+        for alias in self.type_index.types.values() {
+            let mut current = alias;
+            let mut current_initial = alias.initial_value;
+
+            while let DataTypeInformation::Alias { referenced_type, .. } = current.get_type_information() {
+                current = self.type_index.find_type(referenced_type).unwrap_or(&type_index.void_type);
+                current_initial = current_initial.or(current.initial_value);
+            }
+
+            if let DataTypeInformation::Struct { name, .. } = current.get_type_information() {
+                if alias != current {
+                    // we aliased a struct, so we also need to register the members for that name
+                    // we collect new struct fields,  until we can release the borrow on self
+                    new_struct_members.push((
+                        alias.get_name().to_string(),
+                        self.get_members(name)
+                            .map(|it| it.values().cloned().collect())
+                            .unwrap_or_default(),
+                    ));
+                }
+            }
+
+            type_index.types.insert(
+                alias.get_name().to_lowercase(),
+                current.clone_with_new_name(
+                    alias.get_name().into(),
+                    alias.nature,
+                    current_initial,
+                    alias.location.clone(),
+                ),
+            );
+        }
+
+        // now import new struct fields
+        for (container, members) in new_struct_members {
+            for member in members {
+                self.register_member_entry(container.as_str(), member)
+            }
+        }
+
+        for pou in self.type_index.pou_types.values() {
+            type_index.pou_types.insert(pou.get_name().to_lowercase(), pou.clone());
+        }
+        self.type_index = type_index;
     }
 
     fn transfer_constants(

@@ -1400,6 +1400,9 @@ impl<'i> TypeAnnotator<'i> {
                 self.visit_statement(ctx, element)
                 //TODO as of yet we have no way to derive a name that reflects a fixed size array
             }
+            AstStatement::LiteralNull { .. } => {
+                self.annotation_map.annotate(statement, StatementAnnotation::value(VOID_TYPE))
+            }
 
             _ => {}
         }

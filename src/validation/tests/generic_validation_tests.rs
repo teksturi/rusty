@@ -152,11 +152,11 @@ fn any_magnitude_does_not_allow_date() {
     assert_eq!(
         diagnostics,
         vec![
-            Diagnostic::invalid_type_nature("DATE_AND_TIME", "Magnitude", (141..142).into()),
-            Diagnostic::invalid_type_nature("DATE_AND_TIME", "Magnitude", (214..215).into()),
+            Diagnostic::invalid_type_nature("DT", "Magnitude", (141..142).into()),
+            Diagnostic::invalid_type_nature("LDT", "Magnitude", (214..215).into()),
             Diagnostic::invalid_type_nature("DATE", "Magnitude", (282..283).into()),
-            Diagnostic::invalid_type_nature("TIME_OF_DAY", "Magnitude", (355..356).into()),
-            Diagnostic::invalid_type_nature("TIME_OF_DAY", "Magnitude", (423..424).into()),
+            Diagnostic::invalid_type_nature("TOD", "Magnitude", (355..356).into()),
+            Diagnostic::invalid_type_nature("LTOD", "Magnitude", (423..424).into()),
         ]
     );
 }
@@ -207,7 +207,7 @@ fn any_num_does_not_allow_time() {
         diagnostics,
         vec![
             Diagnostic::invalid_type_nature("TIME", "Num", (137..138).into()),
-            Diagnostic::invalid_type_nature("TIME", "Num", (212..213).into()),
+            Diagnostic::invalid_type_nature("LTIME", "Num", (212..213).into()),
         ]
     );
 }
@@ -287,11 +287,11 @@ fn any_num_does_not_allow_date() {
     assert_eq!(
         diagnostics,
         vec![
-            Diagnostic::invalid_type_nature("DATE_AND_TIME", "Num", (135..136).into()),
-            Diagnostic::invalid_type_nature("DATE_AND_TIME", "Num", (208..209).into()),
+            Diagnostic::invalid_type_nature("DT", "Num", (135..136).into()),
+            Diagnostic::invalid_type_nature("LDT", "Num", (208..209).into()),
             Diagnostic::invalid_type_nature("DATE", "Num", (276..277).into()),
-            Diagnostic::invalid_type_nature("TIME_OF_DAY", "Num", (349..350).into()),
-            Diagnostic::invalid_type_nature("TIME_OF_DAY", "Num", (417..418).into()),
+            Diagnostic::invalid_type_nature("TOD", "Num", (349..350).into()),
+            Diagnostic::invalid_type_nature("LTOD", "Num", (417..418).into()),
         ]
     );
 }
@@ -344,7 +344,7 @@ fn any_real_does_not_allow_time() {
         diagnostics,
         vec![
             Diagnostic::invalid_type_nature("TIME", "Real", (138..139).into()),
-            Diagnostic::invalid_type_nature("TIME", "Real", (207..208).into()),
+            Diagnostic::invalid_type_nature("LTIME", "Real", (207..208).into()),
         ]
     );
 }
@@ -424,11 +424,11 @@ fn any_real_does_not_allow_date() {
     assert_eq!(
         diagnostics,
         vec![
-            Diagnostic::invalid_type_nature("DATE_AND_TIME", "Real", (136..137).into()),
-            Diagnostic::invalid_type_nature("DATE_AND_TIME", "Real", (203..204).into()),
+            Diagnostic::invalid_type_nature("DT", "Real", (136..137).into()),
+            Diagnostic::invalid_type_nature("LDT", "Real", (203..204).into()),
             Diagnostic::invalid_type_nature("DATE", "Real", (271..272).into()),
-            Diagnostic::invalid_type_nature("TIME_OF_DAY", "Real", (338..339).into()),
-            Diagnostic::invalid_type_nature("TIME_OF_DAY", "Real", (406..407).into()),
+            Diagnostic::invalid_type_nature("TOD", "Real", (338..339).into()),
+            Diagnostic::invalid_type_nature("LTOD", "Real", (406..407).into()),
         ]
     );
 }
@@ -486,7 +486,7 @@ fn any_int_does_not_allow_time() {
         diagnostics,
         vec![
             Diagnostic::invalid_type_nature("TIME", "Int", (137..138).into()),
-            Diagnostic::invalid_type_nature("TIME", "Int", (206..207).into()),
+            Diagnostic::invalid_type_nature("LTIME", "Int", (206..207).into()),
         ]
     );
 }
@@ -566,11 +566,11 @@ fn any_int_does_not_allow_date() {
     assert_eq!(
         diagnostics,
         vec![
-            Diagnostic::invalid_type_nature("DATE_AND_TIME", "Int", (135..136).into()),
-            Diagnostic::invalid_type_nature("DATE_AND_TIME", "Int", (202..203).into()),
+            Diagnostic::invalid_type_nature("DT", "Int", (135..136).into()),
+            Diagnostic::invalid_type_nature("LDT", "Int", (202..203).into()),
             Diagnostic::invalid_type_nature("DATE", "Int", (270..271).into()),
-            Diagnostic::invalid_type_nature("TIME_OF_DAY", "Int", (337..338).into()),
-            Diagnostic::invalid_type_nature("TIME_OF_DAY", "Int", (405..406).into()),
+            Diagnostic::invalid_type_nature("TOD", "Int", (337..338).into()),
+            Diagnostic::invalid_type_nature("LTOD", "Int", (405..406).into()),
         ]
     );
 }
@@ -644,7 +644,7 @@ fn any_unsigned_does_not_allow_time() {
         diagnostics,
         vec![
             Diagnostic::invalid_type_nature("TIME", "Unsigned", (142..143).into()),
-            Diagnostic::invalid_type_nature("TIME", "Unsigned", (211..212).into()),
+            Diagnostic::invalid_type_nature("LTIME", "Unsigned", (211..212).into()),
         ]
     );
 }
@@ -724,11 +724,11 @@ fn any_unsigned_does_not_allow_date() {
     assert_eq!(
         diagnostics,
         vec![
-            Diagnostic::invalid_type_nature("DATE_AND_TIME", "Unsigned", (140..141).into()),
-            Diagnostic::invalid_type_nature("DATE_AND_TIME", "Unsigned", (207..208).into()),
+            Diagnostic::invalid_type_nature("DT", "Unsigned", (140..141).into()),
+            Diagnostic::invalid_type_nature("LDT", "Unsigned", (207..208).into()),
             Diagnostic::invalid_type_nature("DATE", "Unsigned", (275..276).into()),
-            Diagnostic::invalid_type_nature("TIME_OF_DAY", "Unsigned", (342..343).into()),
-            Diagnostic::invalid_type_nature("TIME_OF_DAY", "Unsigned", (410..411).into()),
+            Diagnostic::invalid_type_nature("TOD", "Unsigned", (342..343).into()),
+            Diagnostic::invalid_type_nature("LTOD", "Unsigned", (410..411).into()),
         ]
     );
 }
@@ -802,7 +802,7 @@ fn any_signed_does_not_allow_time() {
         diagnostics,
         vec![
             Diagnostic::invalid_type_nature("TIME", "Signed", (140..141).into()),
-            Diagnostic::invalid_type_nature("TIME", "Signed", (209..210).into()),
+            Diagnostic::invalid_type_nature("LTIME", "Signed", (209..210).into()),
         ]
     );
 }
@@ -882,11 +882,11 @@ fn any_signed_does_not_allow_date() {
     assert_eq!(
         diagnostics,
         vec![
-            Diagnostic::invalid_type_nature("DATE_AND_TIME", "Signed", (138..139).into()),
-            Diagnostic::invalid_type_nature("DATE_AND_TIME", "Signed", (205..206).into()),
+            Diagnostic::invalid_type_nature("DT", "Signed", (138..139).into()),
+            Diagnostic::invalid_type_nature("LDT", "Signed", (205..206).into()),
             Diagnostic::invalid_type_nature("DATE", "Signed", (273..274).into()),
-            Diagnostic::invalid_type_nature("TIME_OF_DAY", "Signed", (340..341).into()),
-            Diagnostic::invalid_type_nature("TIME_OF_DAY", "Signed", (408..409).into()),
+            Diagnostic::invalid_type_nature("TOD", "Signed", (340..341).into()),
+            Diagnostic::invalid_type_nature("LTOD", "Signed", (408..409).into()),
         ]
     );
 }
@@ -1030,11 +1030,11 @@ fn any_duration_does_not_allow_date() {
     assert_eq!(
         diagnostics,
         vec![
-            Diagnostic::invalid_type_nature("DATE_AND_TIME", "Duration", (140..141).into()),
-            Diagnostic::invalid_type_nature("DATE_AND_TIME", "Duration", (207..208).into()),
+            Diagnostic::invalid_type_nature("DT", "Duration", (140..141).into()),
+            Diagnostic::invalid_type_nature("LDT", "Duration", (207..208).into()),
             Diagnostic::invalid_type_nature("DATE", "Duration", (275..276).into()),
-            Diagnostic::invalid_type_nature("TIME_OF_DAY", "Duration", (342..343).into()),
-            Diagnostic::invalid_type_nature("TIME_OF_DAY", "Duration", (410..411).into()),
+            Diagnostic::invalid_type_nature("TOD", "Duration", (342..343).into()),
+            Diagnostic::invalid_type_nature("LTOD", "Duration", (410..411).into()),
         ]
     );
 }
@@ -1104,7 +1104,7 @@ fn any_bit_does_not_allow_time() {
         diagnostics,
         vec![
             Diagnostic::invalid_type_nature("TIME", "Bit", (137..138).into()),
-            Diagnostic::invalid_type_nature("TIME", "Bit", (206..207).into()),
+            Diagnostic::invalid_type_nature("LTIME", "Bit", (206..207).into()),
         ]
     );
 }
@@ -1175,11 +1175,11 @@ fn any_bit_does_not_allow_date() {
     assert_eq!(
         diagnostics,
         vec![
-            Diagnostic::invalid_type_nature("DATE_AND_TIME", "Bit", (135..136).into()),
-            Diagnostic::invalid_type_nature("DATE_AND_TIME", "Bit", (202..203).into()),
+            Diagnostic::invalid_type_nature("DT", "Bit", (135..136).into()),
+            Diagnostic::invalid_type_nature("LDT", "Bit", (202..203).into()),
             Diagnostic::invalid_type_nature("DATE", "Bit", (270..271).into()),
-            Diagnostic::invalid_type_nature("TIME_OF_DAY", "Bit", (337..338).into()),
-            Diagnostic::invalid_type_nature("TIME_OF_DAY", "Bit", (405..406).into()),
+            Diagnostic::invalid_type_nature("TOD", "Bit", (337..338).into()),
+            Diagnostic::invalid_type_nature("LTOD", "Bit", (405..406).into()),
         ]
     );
 }
@@ -1249,7 +1249,7 @@ fn any_chars_does_not_allow_time() {
         diagnostics,
         vec![
             Diagnostic::invalid_type_nature("TIME", "Chars", (139..140).into()),
-            Diagnostic::invalid_type_nature("TIME", "Chars", (208..209).into()),
+            Diagnostic::invalid_type_nature("LTIME", "Chars", (208..209).into()),
         ]
     );
 }
@@ -1317,11 +1317,11 @@ fn any_chars_does_not_allow_date() {
     assert_eq!(
         diagnostics,
         vec![
-            Diagnostic::invalid_type_nature("DATE_AND_TIME", "Chars", (137..138).into()),
-            Diagnostic::invalid_type_nature("DATE_AND_TIME", "Chars", (204..205).into()),
+            Diagnostic::invalid_type_nature("DT", "Chars", (137..138).into()),
+            Diagnostic::invalid_type_nature("LDT", "Chars", (204..205).into()),
             Diagnostic::invalid_type_nature("DATE", "Chars", (272..273).into()),
-            Diagnostic::invalid_type_nature("TIME_OF_DAY", "Chars", (339..340).into()),
-            Diagnostic::invalid_type_nature("TIME_OF_DAY", "Chars", (407..408).into()),
+            Diagnostic::invalid_type_nature("TOD", "Chars", (339..340).into()),
+            Diagnostic::invalid_type_nature("LTOD", "Chars", (407..408).into()),
         ]
     );
 }
@@ -1391,7 +1391,7 @@ fn any_string_does_not_allow_time() {
         diagnostics,
         vec![
             Diagnostic::invalid_type_nature("TIME", "String", (140..141).into()),
-            Diagnostic::invalid_type_nature("TIME", "String", (209..210).into()),
+            Diagnostic::invalid_type_nature("LTIME", "String", (209..210).into()),
         ]
     );
 }
@@ -1465,11 +1465,11 @@ fn any_string_does_not_allow_date() {
     assert_eq!(
         diagnostics,
         vec![
-            Diagnostic::invalid_type_nature("DATE_AND_TIME", "String", (138..139).into()),
-            Diagnostic::invalid_type_nature("DATE_AND_TIME", "String", (205..206).into()),
+            Diagnostic::invalid_type_nature("DT", "String", (138..139).into()),
+            Diagnostic::invalid_type_nature("LDT", "String", (205..206).into()),
             Diagnostic::invalid_type_nature("DATE", "String", (273..274).into()),
-            Diagnostic::invalid_type_nature("TIME_OF_DAY", "String", (340..341).into()),
-            Diagnostic::invalid_type_nature("TIME_OF_DAY", "String", (408..409).into()),
+            Diagnostic::invalid_type_nature("TOD", "String", (340..341).into()),
+            Diagnostic::invalid_type_nature("LTOD", "String", (408..409).into()),
         ]
     );
 }
@@ -1539,7 +1539,7 @@ fn any_char_does_not_allow_time() {
         diagnostics,
         vec![
             Diagnostic::invalid_type_nature("TIME", "Char", (138..139).into()),
-            Diagnostic::invalid_type_nature("TIME", "Char", (207..208).into()),
+            Diagnostic::invalid_type_nature("LTIME", "Char", (207..208).into()),
         ]
     );
 }
@@ -1613,11 +1613,11 @@ fn any_char_does_not_allow_date() {
     assert_eq!(
         diagnostics,
         vec![
-            Diagnostic::invalid_type_nature("DATE_AND_TIME", "Char", (136..137).into()),
-            Diagnostic::invalid_type_nature("DATE_AND_TIME", "Char", (203..204).into()),
+            Diagnostic::invalid_type_nature("DT", "Char", (136..137).into()),
+            Diagnostic::invalid_type_nature("LDT", "Char", (203..204).into()),
             Diagnostic::invalid_type_nature("DATE", "Char", (271..272).into()),
-            Diagnostic::invalid_type_nature("TIME_OF_DAY", "Char", (338..339).into()),
-            Diagnostic::invalid_type_nature("TIME_OF_DAY", "Char", (406..407).into()),
+            Diagnostic::invalid_type_nature("TOD", "Char", (338..339).into()),
+            Diagnostic::invalid_type_nature("LTOD", "Char", (406..407).into()),
         ]
     );
 }
@@ -1687,7 +1687,7 @@ fn any_date_does_not_allow_time() {
         diagnostics,
         vec![
             Diagnostic::invalid_type_nature("TIME", "Date", (138..139).into()),
-            Diagnostic::invalid_type_nature("TIME", "Date", (207..208).into()),
+            Diagnostic::invalid_type_nature("LTIME", "Date", (207..208).into()),
         ]
     );
 }

@@ -1,3 +1,4 @@
+use generational_arena::Index;
 // Copyright (c) 2020 Ghaith Hachem and Mathias Rieder
 use pretty_assertions::assert_eq;
 
@@ -5,7 +6,7 @@ use crate::index::{ArgumentType, PouIndexEntry, SymbolLocation, VariableIndexEnt
 use crate::lexer::IdProvider;
 use crate::parser::tests::literal_int;
 use crate::test_utils::tests::{annotate_with_ids, index, index_with_ids, parse_and_preprocess};
-use crate::typesystem::{TypeSize, INT_TYPE, VOID_TYPE};
+use crate::typesystem::{Dimension, TypeSize, INT_TYPE, VOID_TYPE};
 use crate::{ast::*, index::VariableType, typesystem::DataTypeInformation};
 
 #[test]
@@ -528,19 +529,55 @@ fn find_effective_type_finds_the_inner_effective_type() {
 
     let my_alias = "MyAlias";
     let int = index.find_effective_type_by_name(my_alias).unwrap();
-    assert_eq!("INT", int.get_name());
+    assert_eq!(my_alias, int.get_name());
+    assert_eq!(
+        index.find_effective_type_info(my_alias),
+        Some(&DataTypeInformation::Integer {
+            name: "MyAlias".to_string(),
+            signed: true,
+            size: 16,
+            semantic_size: None
+        })
+    );
 
     let my_alias = "MySecondAlias";
     let int = index.find_effective_type_by_name(my_alias).unwrap();
-    assert_eq!("INT", int.get_name());
+    assert_eq!(my_alias, int.get_name());
+    assert_eq!(
+        index.find_effective_type_info(my_alias),
+        Some(&DataTypeInformation::Integer {
+            name: "MySecondAlias".to_string(),
+            signed: true,
+            size: 16,
+            semantic_size: None
+        })
+    );
 
     let my_alias = "MyArrayAlias";
-    let array = index.find_effective_type_by_name(my_alias).unwrap();
-    assert_eq!("MyArray", array.get_name());
+    assert_eq!(
+        index.find_effective_type_info(my_alias),
+        Some(&DataTypeInformation::Array {
+            name: "MyArrayAlias".to_string(),
+            inner_type_name: "INT".to_string(),
+            dimensions: vec![Dimension {
+                start_offset: TypeSize::ConstExpression(Index::from_raw_parts(0, 0)),
+                end_offset: TypeSize::ConstExpression(Index::from_raw_parts(1, 0))
+            }]
+        })
+    );
 
     let my_alias = "MyArray";
-    let array = index.find_effective_type_by_name(my_alias).unwrap();
-    assert_eq!("MyArray", array.get_name());
+    assert_eq!(
+        index.find_effective_type_info(my_alias),
+        Some(&DataTypeInformation::Array {
+            name: "MyArray".to_string(),
+            inner_type_name: "INT".to_string(),
+            dimensions: vec![Dimension {
+                start_offset: TypeSize::ConstExpression(Index::from_raw_parts(0, 0)),
+                end_offset: TypeSize::ConstExpression(Index::from_raw_parts(1, 0))
+            }]
+        })
+    );
 }
 
 #[test]
@@ -1333,8 +1370,12 @@ fn sub_range_boundaries_are_registered_at_the_index() {
 
     // THEN I expect the index to contain the defined range-information for the given type
     let my_int = &index.get_type("MyAliasInt").unwrap().information;
-    let expected =
-        &DataTypeInformation::Alias { name: "MyAliasInt".to_string(), referenced_type: "MyInt".to_string() };
+    let expected = &DataTypeInformation::SubRange {
+        name: "MyAliasInt".to_string(),
+        referenced_type: "INT".to_string(),
+        sub_range: AstStatement::LiteralInteger { value: 7, location: SourceRange::undefined(), id: 0 }
+            ..AstStatement::LiteralInteger { value: 1000, location: SourceRange::undefined(), id: 0 },
+    };
 
     assert_eq!(format!("{:?}", expected), format!("{:?}", my_int));
 }
