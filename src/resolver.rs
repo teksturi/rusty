@@ -1443,16 +1443,16 @@ fn register_string_type(index: &mut Index, is_wide: bool, len: usize) -> String 
     };
 
     if index.find_effective_type_by_name(new_type_name.as_str()).is_none() {
-        index.register_type(crate::typesystem::DataType {
-            name: new_type_name.clone(),
-            initial_value: None,
-            nature: TypeNature::Chars,
-            information: crate::typesystem::DataTypeInformation::String {
+        index.register_type(crate::typesystem::DataType::new(
+            new_type_name.clone(),
+            None,
+            crate::typesystem::DataTypeInformation::String {
                 encoding: if is_wide { StringEncoding::Utf16 } else { StringEncoding::Utf8 },
                 size: typesystem::TypeSize::LiteralInteger(len as i64 + 1),
             },
-            location: SymbolLocation::internal(),
-        });
+            TypeNature::Chars,
+            SymbolLocation::internal(),
+        ));
     }
     new_type_name
 }
@@ -1462,17 +1462,17 @@ pub(crate) fn add_pointer_type(index: &mut Index, inner_type_name: String) -> St
     let new_type_name = typesystem::create_internal_type_name("POINTER_TO_", inner_type_name.as_str());
 
     if index.find_effective_type_by_name(new_type_name.as_str()).is_none() {
-        index.register_type(crate::typesystem::DataType {
-            name: new_type_name.clone(),
-            initial_value: None,
-            nature: TypeNature::Any,
-            information: crate::typesystem::DataTypeInformation::Pointer {
+        index.register_type(crate::typesystem::DataType::new(
+            new_type_name.clone(),
+            None,
+            crate::typesystem::DataTypeInformation::Pointer {
                 auto_deref: false,
                 inner_type_name,
                 name: new_type_name.clone(),
             },
-            location: SymbolLocation::internal(),
-        });
+            TypeNature::Any,
+            SymbolLocation::internal(),
+        ));
     }
     new_type_name
 }

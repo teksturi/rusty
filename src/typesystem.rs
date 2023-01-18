@@ -101,16 +101,31 @@ mod tests;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DataType {
+    /// the declaration name of the datatype
     pub name: String,
-    /// the initial value defined on the TYPE-declration
+    /// the initial value defined on the TYPE-declaration
     pub initial_value: Option<ConstId>,
+    /// the dataTypeInformation which holds information about the type's category (numeric, array, string, etc.)
     pub information: DataTypeInformation,
+    /// the type's nature according to IEC61131-3
     pub nature: TypeNature,
+    /// the location of the type's declaration
     pub location: SymbolLocation,
-
+    /// the name of the original type this is aliasing
+    pub alias_of: Option<String>,
 }
 
 impl DataType {
+    pub fn new(
+        name: String,
+        initial_value: Option<ConstId>,
+        information: DataTypeInformation,
+        nature: TypeNature,
+        location: SymbolLocation,
+    ) -> Self {
+        Self { name, initial_value, nature, location, information, alias_of: None }
+    }
+
     pub fn get_name(&self) -> &str {
         self.name.as_str()
     }
@@ -146,13 +161,20 @@ impl DataType {
         self.get_type_information().is_agregate()
     }
 
-    pub fn clone_with_new_name(&self, new_name: String, nature: TypeNature, initial_value: Option<ConstId>, location: SymbolLocation) -> DataType {
+    pub fn create_alias(
+        &self,
+        new_name: String,
+        nature: TypeNature,
+        initial_value: Option<ConstId>,
+        location: SymbolLocation,
+    ) -> DataType {
         DataType {
             name: new_name.clone(),
             initial_value,
             information: self.information.clone_with_new_name(new_name),
             nature,
             location,
+            alias_of: Some(self.get_name().to_string()),
         }
     }
 }
@@ -578,19 +600,20 @@ macro_rules! int_type {
             },
             nature: $nature,
             location: SymbolLocation::internal(),
+            alias_of: None,
         }
     };
 }
 
 pub fn get_builtin_types() -> Vec<DataType> {
     vec![
-        DataType {
-            name: "VOID".into(),
-            initial_value: None,
-            information: DataTypeInformation::Void,
-            nature: TypeNature::Any,
-            location: SymbolLocation::internal(),
-        },
+        DataType::new(
+            "VOID".into(),
+            None,
+            DataTypeInformation::Void,
+            TypeNature::Any,
+            SymbolLocation::internal(),
+        ),
         int_type!(U1_TYPE.into(), 1, TypeNature::Bit, false),
         int_type!(U8_TYPE.into(), 8, TypeNature::Unsigned, false),
         int_type!(U16_TYPE.into(), 16, TypeNature::Unsigned, false),
@@ -600,76 +623,76 @@ pub fn get_builtin_types() -> Vec<DataType> {
         int_type!(I16_TYPE.into(), 16, TypeNature::Signed, true),
         int_type!(I32_TYPE.into(), 32, TypeNature::Signed, true),
         int_type!(I64_TYPE.into(), 64, TypeNature::Signed, true),
-        DataType {
-            name: BOOL_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::Integer {
+        DataType::new(
+            BOOL_TYPE.into(),
+            None,
+            DataTypeInformation::Integer {
                 name: BOOL_TYPE.into(),
                 signed: false,
                 size: BOOL_SIZE,
                 semantic_size: Some(1),
             },
-            nature: TypeNature::Bit,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: F32_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::Float { name: F32_TYPE.into(), size: 32 },
-            nature: TypeNature::Real,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: F64_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::Float { name: F64_TYPE.into(), size: 64 },
-            nature: TypeNature::Real,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: STRING_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::String {
+            TypeNature::Bit,
+            SymbolLocation::internal(),
+        ),
+        DataType::new(
+            F32_TYPE.into(),
+            None,
+            DataTypeInformation::Float { name: F32_TYPE.into(), size: 32 },
+            TypeNature::Real,
+            SymbolLocation::internal(),
+        ),
+        DataType::new(
+            F64_TYPE.into(),
+            None,
+            DataTypeInformation::Float { name: F64_TYPE.into(), size: 64 },
+            TypeNature::Real,
+            SymbolLocation::internal(),
+        ),
+        DataType::new(
+            STRING_TYPE.into(),
+            None,
+            DataTypeInformation::String {
                 size: TypeSize::from_literal((DEFAULT_STRING_LEN + 1).into()),
                 encoding: StringEncoding::Utf8,
             },
-            nature: TypeNature::String,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: WSTRING_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::String {
+            TypeNature::String,
+            SymbolLocation::internal(),
+        ),
+        DataType::new(
+            WSTRING_TYPE.into(),
+            None,
+            DataTypeInformation::String {
                 size: TypeSize::from_literal((DEFAULT_STRING_LEN + 1).into()),
                 encoding: StringEncoding::Utf16,
             },
-            nature: TypeNature::String,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: CHAR_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::Integer {
+            TypeNature::String,
+            SymbolLocation::internal(),
+        ),
+        DataType::new(
+            CHAR_TYPE.into(),
+            None,
+            DataTypeInformation::Integer {
                 name: CHAR_TYPE.into(),
                 signed: false,
                 size: 8,
                 semantic_size: None,
             },
-            nature: TypeNature::Char,
-            location: SymbolLocation::internal(),
-        },
-        DataType {
-            name: WCHAR_TYPE.into(),
-            initial_value: None,
-            information: DataTypeInformation::Integer {
+            TypeNature::Char,
+            SymbolLocation::internal(),
+        ),
+        DataType::new(
+            WCHAR_TYPE.into(),
+            None,
+            DataTypeInformation::Integer {
                 name: WCHAR_TYPE.into(),
                 signed: false,
                 size: 16,
                 semantic_size: None,
             },
-            nature: TypeNature::Char,
-            location: SymbolLocation::internal(),
-        },
+            TypeNature::Char,
+            SymbolLocation::internal(),
+        ),
     ]
 }
 

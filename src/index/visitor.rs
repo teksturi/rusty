@@ -123,17 +123,17 @@ pub fn visit_pou(index: &mut Index, pou: &Pou, symbol_location_factory: &SymbolL
     }
 
     let has_varargs = member_varargs.is_some();
-    let datatype = typesystem::DataType {
-        name: pou.name.to_string(),
-        initial_value: None,
-        information: DataTypeInformation::Struct {
+    let datatype = typesystem::DataType::new(
+        pou.name.to_string(),
+        None,
+        DataTypeInformation::Struct {
             name: pou.name.to_string(),
             member_names,
             source: StructSource::Pou(pou.pou_type.clone()),
         },
-        nature: TypeNature::Any,
-        location: symbol_location_factory.create_symbol_location(&pou.name_location),
-    };
+        TypeNature::Any,
+        symbol_location_factory.create_symbol_location(&pou.name_location),
+    );
 
     match &pou.pou_type {
         PouType::Program => {
@@ -245,16 +245,16 @@ fn visit_implementation(
     );
     //if we are registing an action, also register a datatype for it
     if pou_type == &PouType::Action {
-        let datatype = typesystem::DataType {
-            name: implementation.name.to_string(),
-            initial_value: None,
-            information: DataTypeInformation::Alias {
+        let datatype = typesystem::DataType::new(
+            implementation.name.to_string(),
+            None,
+            DataTypeInformation::Alias {
                 name: implementation.name.clone(),
                 referenced_type: implementation.type_name.clone(),
             },
-            nature: TypeNature::Derived,
-            location: symbol_location_factory.create_symbol_location(&implementation.name_location),
-        };
+            TypeNature::Derived,
+            symbol_location_factory.create_symbol_location(&implementation.name_location),
+        );
 
         index.register_pou(PouIndexEntry::create_action_entry(
             implementation.name.as_str(),
@@ -274,17 +274,17 @@ fn register_byref_pointer_type_for(index: &mut Index, inner_type_name: &str) -> 
     //check if type was already created
     if index.find_effective_type_by_name(type_name.as_str()).is_none() {
         //generate a pointertype for the variable
-        index.register_type(typesystem::DataType {
-            name: type_name.clone(),
-            initial_value: None,
-            information: DataTypeInformation::Pointer {
+        index.register_type(typesystem::DataType::new(
+            type_name.clone(),
+            None,
+            DataTypeInformation::Pointer {
                 name: type_name.clone(),
                 inner_type_name: inner_type_name.to_string(),
                 auto_deref: true,
             },
-            nature: TypeNature::Any,
-            location: SymbolLocation::internal(),
-        });
+            TypeNature::Any,
+            SymbolLocation::internal(),
+        ));
     }
 
     type_name
@@ -356,13 +356,13 @@ fn visit_data_type(
                 type_name.as_str(),
                 scope.clone(),
             );
-            index.register_type(typesystem::DataType {
-                name: name.to_string(),
-                initial_value: init,
+            index.register_type(typesystem::DataType::new(
+                name.to_string(),
+                init,
                 information,
-                nature: TypeNature::Derived,
-                location: symbol_location_factory.create_symbol_location(&type_declaration.location),
-            });
+                TypeNature::Derived,
+                symbol_location_factory.create_symbol_location(&type_declaration.location),
+            ));
             //Generate an initializer for the struct
             let global_struct_name = crate::index::get_initializer_name(name);
             let variable = VariableIndexEntry::create_global(
@@ -452,13 +452,13 @@ fn visit_data_type(
                 enum_name,
                 scope.clone(),
             );
-            index.register_type(typesystem::DataType {
-                name: enum_name.to_string(),
-                initial_value: init,
+            index.register_type(typesystem::DataType::new(
+                enum_name.to_string(),
+                init,
                 information,
-                nature: TypeNature::Int,
-                location: symbol_location_factory.create_symbol_location(&type_declaration.location),
-            });
+                TypeNature::Int,
+                symbol_location_factory.create_symbol_location(&type_declaration.location),
+            ));
         }
 
         DataType::SubRangeType { name: Some(name), referenced_type, bounds } => {
@@ -477,13 +477,13 @@ fn visit_data_type(
                 name,
                 scope.clone(),
             );
-            index.register_type(typesystem::DataType {
-                name: name.to_string(),
-                initial_value: init,
+            index.register_type(typesystem::DataType::new(
+                name.to_string(),
+                init,
                 information,
-                nature: type_declaration.nature_override.unwrap_or(TypeNature::Int),
-                location: symbol_location_factory.create_symbol_location(&type_declaration.location),
-            });
+                type_declaration.nature_override.unwrap_or(TypeNature::Int),
+                symbol_location_factory.create_symbol_location(&type_declaration.location),
+            ));
         }
         DataType::ArrayType { name: Some(name), referenced_type, bounds } => {
             let dimensions: Result<Vec<Dimension>, Diagnostic> = bounds
@@ -533,13 +533,13 @@ fn visit_data_type(
                 scope.clone(),
             );
 
-            index.register_type(typesystem::DataType {
-                name: name.to_string(),
-                initial_value: init1,
+            index.register_type(typesystem::DataType::new(
+                name.to_string(),
+                init1,
                 information,
-                nature: type_declaration.nature_override.unwrap_or(TypeNature::Any),
-                location: symbol_location_factory.create_symbol_location(&type_declaration.location),
-            });
+                type_declaration.nature_override.unwrap_or(TypeNature::Any),
+                symbol_location_factory.create_symbol_location(&type_declaration.location),
+            ));
             let global_init_name = crate::index::get_initializer_name(name);
             if init2.is_some() {
                 let variable = VariableIndexEntry::create_global(
@@ -566,13 +566,13 @@ fn visit_data_type(
                 name,
                 scope.clone(),
             );
-            index.register_type(typesystem::DataType {
-                name: name.to_string(),
-                initial_value: init,
+            index.register_type(typesystem::DataType::new(
+                name.to_string(),
+                init,
                 information,
-                nature: type_declaration.nature_override.unwrap_or(TypeNature::Any),
-                location: symbol_location_factory.create_symbol_location(&type_declaration.location),
-            });
+                type_declaration.nature_override.unwrap_or(TypeNature::Any),
+                symbol_location_factory.create_symbol_location(&type_declaration.location),
+            ));
         }
         DataType::StringType { name: Some(name), size, is_wide, .. } => {
             let type_name = name;
@@ -609,13 +609,13 @@ fn visit_data_type(
                 type_name,
                 scope.clone(),
             );
-            index.register_type(typesystem::DataType {
-                name: name.to_string(),
-                initial_value: init,
+            index.register_type(typesystem::DataType::new(
+                name.to_string(),
+                init,
                 information,
-                nature: type_declaration.nature_override.unwrap_or(TypeNature::String),
-                location: symbol_location_factory.create_symbol_location(&type_declaration.location),
-            });
+                type_declaration.nature_override.unwrap_or(TypeNature::String),
+                symbol_location_factory.create_symbol_location(&type_declaration.location),
+            ));
 
             if init.is_some() {
                 // register a global variable with the initial value to memcopy from
@@ -638,13 +638,13 @@ fn visit_data_type(
                 generic_symbol: generic_symbol.clone(),
                 nature: *nature,
             };
-            index.register_type(typesystem::DataType {
-                name: name.to_string(),
-                initial_value: None,
+            index.register_type(typesystem::DataType::new(
+                name.to_string(),
+                None,
                 information,
-                nature: type_declaration.nature_override.unwrap_or(TypeNature::Any),
-                location: symbol_location_factory.create_symbol_location(&type_declaration.location),
-            });
+                type_declaration.nature_override.unwrap_or(TypeNature::Any),
+                symbol_location_factory.create_symbol_location(&type_declaration.location),
+            ));
         }
 
         _ => { /* unnamed datatypes are ignored */ }

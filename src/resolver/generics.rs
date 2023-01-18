@@ -189,13 +189,13 @@ impl<'i> TypeAnnotator<'i> {
                     DataTypeInformation::Pointer { name: name.clone(), inner_type_name, auto_deref: true };
 
                 // Registers a new pointer type to the index
-                self.annotation_map.new_index.register_type(DataType {
-                    information: new_type_info,
-                    initial_value: None,
-                    name: name.clone(),
-                    nature: TypeNature::Any,
-                    location: SymbolLocation::internal(),
-                });
+                self.annotation_map.new_index.register_type(DataType::new(
+                    name.clone(),
+                    None,
+                    new_type_info,
+                    TypeNature::Any,
+                    SymbolLocation::internal(),
+                ));
 
                 name
             }

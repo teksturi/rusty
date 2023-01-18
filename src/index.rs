@@ -686,13 +686,13 @@ impl Default for TypeIndex {
         TypeIndex {
             types: SymbolMap::default(),
             pou_types: SymbolMap::default(),
-            void_type: DataType {
-                name: VOID_TYPE.into(),
-                initial_value: None,
-                information: DataTypeInformation::Void,
-                nature: TypeNature::Any,
-                location: SymbolLocation::internal(),
-            },
+            void_type: DataType::new(
+                VOID_TYPE.into(),
+                None,
+                DataTypeInformation::Void,
+                TypeNature::Any,
+                SymbolLocation::internal(),
+            ),
         }
     }
 }
@@ -894,17 +894,15 @@ impl Index {
                     // we collect new struct fields,  until we can release the borrow on self
                     new_struct_members.push((
                         alias.get_name().to_string(),
-                        self.get_members(name)
-                            .map(|it| it.values().cloned().collect())
-                            .unwrap_or_default(),
+                        self.get_members(name).map(|it| it.values().cloned().collect()).unwrap_or_default(),
                     ));
                 }
             }
 
             type_index.types.insert(
                 alias.get_name().to_lowercase(),
-                current.clone_with_new_name(
-                    alias.get_name().into(),
+                current.create_alias(
+                    alias.get_name().to_string(),
                     alias.nature,
                     current_initial,
                     alias.location.clone(),

@@ -78,6 +78,7 @@ fn programs_state_is_stored_in_a_struct() {
                     range: 13..21,
                 },
             },
+            alias_of: None,
         },
     )
     "###);

@@ -48,29 +48,29 @@ fn string_literals_are_annotated() {
     // AND we expect some newly created String-types
     assert_eq!(
         index.get_type_or_panic("__STRING_3"),
-        &DataType {
-            initial_value: None,
-            name: "__STRING_3".into(),
-            nature: crate::ast::TypeNature::Chars,
-            information: DataTypeInformation::String {
+        &DataType::new(
+            "__STRING_3".into(),
+            None,
+            DataTypeInformation::String {
                 encoding: crate::typesystem::StringEncoding::Utf8,
                 size: crate::typesystem::TypeSize::LiteralInteger(4)
             },
-            location: SymbolLocation::internal()
-        }
+            crate::ast::TypeNature::Chars,
+            SymbolLocation::internal(),
+        )
     );
     assert_eq!(
         index.get_type_or_panic("__WSTRING_6"),
-        &DataType {
-            initial_value: None,
-            name: "__WSTRING_6".into(),
-            nature: crate::ast::TypeNature::Chars,
-            information: DataTypeInformation::String {
+        &DataType::new(
+            "__WSTRING_6".into(),
+            None,
+            DataTypeInformation::String {
                 encoding: crate::typesystem::StringEncoding::Utf16,
                 size: crate::typesystem::TypeSize::LiteralInteger(7)
             },
-            location: SymbolLocation::internal()
-        }
+            crate::ast::TypeNature::Chars,
+            SymbolLocation::internal(),
+        )
     );
 }
 

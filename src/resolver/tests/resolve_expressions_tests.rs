@@ -1130,8 +1130,18 @@ fn qualified_expressions_to_aliased_structs_resolve_types() {
     let (annotations, _) = TypeAnnotator::visit_unit(&index, &unit, id_provider);
     let statements = &unit.implementations[0].statements;
 
-    let expected_types =
-        vec!["AliasedMyStruct", "BYTE", "WORD", "DWORD", "LWORD", "AliasedNextStruct", "BYTE", "WORD", "DWORD", "LWORD"];
+    let expected_types = vec![
+        "AliasedMyStruct",
+        "BYTE",
+        "WORD",
+        "DWORD",
+        "LWORD",
+        "AliasedNextStruct",
+        "BYTE",
+        "WORD",
+        "DWORD",
+        "LWORD",
+    ];
     let type_names: Vec<&str> =
         statements.iter().map(|s| annotations.get_type_or_void(s, &index).get_name()).collect();
 
