@@ -2,7 +2,7 @@ use crate::{
     ast::{PouType, SourceRange},
     diagnostics::Diagnostic,
     index::{symbol::SymbolMap, Index, PouIndexEntry},
-    typesystem::{DataTypeInformation, StructSource},
+    typesystem::{DataTypeDefinition, StructSource},
 };
 
 /// Validator that does not check a dedicated file but rather
@@ -133,7 +133,7 @@ impl GlobalValidator {
                     .map(|it| {
                         matches!(
                             it.information,
-                            DataTypeInformation::Struct {
+                            DataTypeDefinition::Struct {
                                 source: StructSource::Pou(PouType::FunctionBlock),
                                 ..
                             }

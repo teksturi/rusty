@@ -7,7 +7,7 @@ use crate::lexer::IdProvider;
 use crate::parser::tests::literal_int;
 use crate::test_utils::tests::{annotate_with_ids, index, index_with_ids, parse_and_preprocess};
 use crate::typesystem::{Dimension, TypeSize, INT_TYPE, VOID_TYPE};
-use crate::{ast::*, index::VariableType, typesystem::DataTypeInformation};
+use crate::{ast::*, index::VariableType, typesystem::DataTypeDefinition};
 
 #[test]
 fn index_not_case_sensitive() {
@@ -101,13 +101,13 @@ fn actions_are_indexed() {
     assert_eq!("myProgram.foo", foo_impl.call_name);
     assert_eq!("myProgram", foo_impl.type_name);
     let info = index.get_type("myProgram.foo").unwrap().get_type_information();
-    if let crate::typesystem::DataTypeInformation::Alias { name, referenced_type } = info {
+    if let crate::typesystem::DataTypeDefinition::Alias { name, referenced_type } = info {
         assert_eq!("myProgram.foo", name);
         assert_eq!("myProgram", referenced_type);
     } else {
         panic!("Wrong variant : {:#?}", info);
     }
-    if let crate::typesystem::DataTypeInformation::Struct { name, .. } =
+    if let crate::typesystem::DataTypeDefinition::Struct { name, .. } =
         index.find_effective_type_info(info.get_name()).unwrap()
     {
         assert_eq!("myProgram", name);
@@ -120,13 +120,13 @@ fn actions_are_indexed() {
     assert_eq!("myProgram", bar.type_name);
 
     let info = index.get_type("myProgram.bar").unwrap().get_type_information();
-    if let crate::typesystem::DataTypeInformation::Alias { name, referenced_type } = info {
+    if let crate::typesystem::DataTypeDefinition::Alias { name, referenced_type } = info {
         assert_eq!("myProgram.bar", name);
         assert_eq!("myProgram", referenced_type);
     } else {
         panic!("Wrong variant : {:#?}", info);
     }
-    if let crate::typesystem::DataTypeInformation::Struct { name, .. } =
+    if let crate::typesystem::DataTypeDefinition::Struct { name, .. } =
         index.find_effective_type_info(info.get_name()).unwrap()
     {
         assert_eq!("myProgram", name);
@@ -151,7 +151,7 @@ fn fb_methods_are_indexed() {
     assert_eq!("myFuncBlock.foo", foo_impl.call_name);
     assert_eq!("myFuncBlock.foo", foo_impl.type_name);
     let info = index.get_type("myFuncBlock.foo").unwrap().get_type_information();
-    if let crate::typesystem::DataTypeInformation::Struct { name, member_names, .. } = info {
+    if let crate::typesystem::DataTypeDefinition::Struct { name, member_names, .. } = info {
         assert_eq!("myFuncBlock.foo", name);
         assert_eq!(&vec!["x"], member_names);
     } else {
@@ -175,7 +175,7 @@ fn class_methods_are_indexed() {
     assert_eq!("myClass.foo", foo_impl.call_name);
     assert_eq!("myClass.foo", foo_impl.type_name);
     let info = index.get_type("myClass.foo").unwrap().get_type_information();
-    if let crate::typesystem::DataTypeInformation::Struct { name, member_names, .. } = info {
+    if let crate::typesystem::DataTypeDefinition::Struct { name, member_names, .. } = info {
         assert_eq!("myClass.foo", name);
         assert_eq!(&vec!["y"], member_names);
     } else {
@@ -532,7 +532,7 @@ fn find_effective_type_finds_the_inner_effective_type() {
     assert_eq!(my_alias, int.get_name());
     assert_eq!(
         index.find_effective_type_info(my_alias),
-        Some(&DataTypeInformation::Integer {
+        Some(&DataTypeDefinition::Integer {
             name: "MyAlias".to_string(),
             signed: true,
             size: 16,
@@ -545,7 +545,7 @@ fn find_effective_type_finds_the_inner_effective_type() {
     assert_eq!(my_alias, int.get_name());
     assert_eq!(
         index.find_effective_type_info(my_alias),
-        Some(&DataTypeInformation::Integer {
+        Some(&DataTypeDefinition::Integer {
             name: "MySecondAlias".to_string(),
             signed: true,
             size: 16,
@@ -556,7 +556,7 @@ fn find_effective_type_finds_the_inner_effective_type() {
     let my_alias = "MyArrayAlias";
     assert_eq!(
         index.find_effective_type_info(my_alias),
-        Some(&DataTypeInformation::Array {
+        Some(&DataTypeDefinition::Array {
             name: "MyArrayAlias".to_string(),
             inner_type_name: "INT".to_string(),
             dimensions: vec![Dimension {
@@ -569,7 +569,7 @@ fn find_effective_type_finds_the_inner_effective_type() {
     let my_alias = "MyArray";
     assert_eq!(
         index.find_effective_type_info(my_alias),
-        Some(&DataTypeInformation::Array {
+        Some(&DataTypeDefinition::Array {
             name: "MyArray".to_string(),
             inner_type_name: "INT".to_string(),
             dimensions: vec![Dimension {
@@ -1359,7 +1359,7 @@ fn sub_range_boundaries_are_registered_at_the_index() {
 
     // THEN I expect the index to contain the defined range-information for the given type
     let my_int = &index.get_type("MyInt").unwrap().information;
-    let expected = &DataTypeInformation::SubRange {
+    let expected = &DataTypeDefinition::SubRange {
         name: "MyInt".to_string(),
         referenced_type: "INT".to_string(),
         sub_range: AstStatement::LiteralInteger { value: 7, location: SourceRange::undefined(), id: 0 }
@@ -1370,7 +1370,7 @@ fn sub_range_boundaries_are_registered_at_the_index() {
 
     // THEN I expect the index to contain the defined range-information for the given type
     let my_int = &index.get_type("MyAliasInt").unwrap().information;
-    let expected = &DataTypeInformation::SubRange {
+    let expected = &DataTypeDefinition::SubRange {
         name: "MyAliasInt".to_string(),
         referenced_type: "INT".to_string(),
         sub_range: AstStatement::LiteralInteger { value: 7, location: SourceRange::undefined(), id: 0 }
@@ -1512,7 +1512,7 @@ fn array_dimensions_are_stored_in_the_const_expression_arena() {
     let (start_0, end_0) = index
         .find_effective_type_info("MyInt")
         .map(|it| {
-            if let DataTypeInformation::Array { dimensions, .. } = it {
+            if let DataTypeDefinition::Array { dimensions, .. } = it {
                 //return the pair (start, end)
                 (
                     dimensions[0].start_offset.as_int_value(&index).unwrap(),
@@ -1542,7 +1542,7 @@ fn array_dimensions_are_stored_in_the_const_expression_arena() {
     let (start_1, end_1) = index
         .find_effective_type_info("MyInt")
         .map(|it| {
-            if let DataTypeInformation::Array { dimensions, .. } = it {
+            if let DataTypeDefinition::Array { dimensions, .. } = it {
                 //return the pair (start, end)
                 (
                     dimensions[1].start_offset.as_const_expression(&index).unwrap(),
@@ -1584,7 +1584,7 @@ fn string_dimensions_are_stored_in_the_const_expression_arena() {
     } else {
         unreachable!()
     };
-    if let Some(DataTypeInformation::String { size: TypeSize::ConstExpression(expr), .. }) =
+    if let Some(DataTypeDefinition::String { size: TypeSize::ConstExpression(expr), .. }) =
         index.find_effective_type_info("MyString")
     {
         assert_eq!(
@@ -1613,7 +1613,7 @@ fn generic_datatypes_indexed() {
     let g = index.get_type("__gen__G").unwrap();
     assert_eq!(
         g.get_type_information(),
-        &DataTypeInformation::Generic {
+        &DataTypeDefinition::Generic {
             name: "__gen__G".into(),
             generic_symbol: "G".into(),
             nature: TypeNature::Any,
@@ -1622,7 +1622,7 @@ fn generic_datatypes_indexed() {
     let g = index.get_type("__gen__X").unwrap();
     assert_eq!(
         g.get_type_information(),
-        &DataTypeInformation::Generic {
+        &DataTypeDefinition::Generic {
             name: "__gen__X".into(),
             generic_symbol: "X".into(),
             nature: TypeNature::Bit,
@@ -1645,7 +1645,7 @@ fn function_name_equals_return_type() {
     // with the name "time"
     assert_eq!(data_type.get_name(), "TIME");
     // and DataTypeInformation of the type struct
-    assert!(matches!(data_type.get_type_information(), DataTypeInformation::Struct { .. }));
+    assert!(matches!(data_type.get_type_information(), DataTypeDefinition::Struct { .. }));
 }
 
 #[test]
@@ -1689,7 +1689,7 @@ fn pointer_and_in_out_pointer_should_not_conflict() {
     let x_type = index.get_type(x.get_type_name()).unwrap().get_type_information();
     assert_eq!(
         x_type,
-        &DataTypeInformation::Pointer {
+        &DataTypeDefinition::Pointer {
             name: "__main_x".to_string(),
             inner_type_name: "INT".to_string(),
             auto_deref: false,
@@ -1700,7 +1700,7 @@ fn pointer_and_in_out_pointer_should_not_conflict() {
     let y_type = index.get_type(y.get_type_name()).unwrap().get_type_information();
     assert_eq!(
         y_type,
-        &DataTypeInformation::Pointer {
+        &DataTypeDefinition::Pointer {
             name: "__auto_pointer_to_INT".to_string(),
             inner_type_name: "INT".to_string(),
             auto_deref: true,
@@ -1739,7 +1739,7 @@ fn pointer_and_in_out_pointer_should_not_conflict_2() {
     let x_type = index.get_type(x.get_type_name()).unwrap().get_type_information();
     assert_eq!(
         x_type,
-        &DataTypeInformation::Pointer {
+        &DataTypeDefinition::Pointer {
             name: "__main_x".to_string(),
             inner_type_name: "INT".to_string(),
             auto_deref: false,
@@ -1750,7 +1750,7 @@ fn pointer_and_in_out_pointer_should_not_conflict_2() {
     let y_type = index.get_type(y.get_type_name()).unwrap().get_type_information();
     assert_eq!(
         y_type,
-        &DataTypeInformation::Pointer {
+        &DataTypeDefinition::Pointer {
             name: "__auto_pointer_to_INT".to_string(),
             inner_type_name: "INT".to_string(),
             auto_deref: true,

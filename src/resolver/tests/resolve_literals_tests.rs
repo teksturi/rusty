@@ -5,7 +5,7 @@ use crate::{
     lexer::IdProvider,
     resolver::{AnnotationMap, TypeAnnotator},
     test_utils::tests::{annotate_with_ids, index_with_ids},
-    typesystem::{DataType, DataTypeInformation, StringEncoding, TypeSize, DINT_TYPE},
+    typesystem::{DataType, DataTypeDefinition, StringEncoding, TypeSize, DINT_TYPE},
 };
 
 #[test]
@@ -51,7 +51,7 @@ fn string_literals_are_annotated() {
         &DataType::new(
             "__STRING_3".into(),
             None,
-            DataTypeInformation::String {
+            DataTypeDefinition::String {
                 encoding: crate::typesystem::StringEncoding::Utf8,
                 size: crate::typesystem::TypeSize::LiteralInteger(4)
             },
@@ -64,7 +64,7 @@ fn string_literals_are_annotated() {
         &DataType::new(
             "__WSTRING_6".into(),
             None,
-            DataTypeInformation::String {
+            DataTypeDefinition::String {
                 encoding: crate::typesystem::StringEncoding::Utf16,
                 size: crate::typesystem::TypeSize::LiteralInteger(7)
             },
@@ -270,8 +270,7 @@ fn enum_literals_target_are_annotated() {
     let color_red = &unit.implementations[0].statements[0];
 
     assert_eq!(
-        &DataTypeInformation::Enum {
-            name: "Color".into(),
+        &DataTypeDefinition::Enum {
             elements: vec!["Green".into(), "Yellow".into(), "Red".into()],
             referenced_type: DINT_TYPE.into(),
         },
@@ -280,8 +279,7 @@ fn enum_literals_target_are_annotated() {
 
     if let AstStatement::CastStatement { target, .. } = color_red {
         assert_eq!(
-            &DataTypeInformation::Enum {
-                name: "Color".into(),
+            &DataTypeDefinition::Enum {
                 elements: vec!["Green".into(), "Yellow".into(), "Red".into()],
                 referenced_type: DINT_TYPE.into(),
             },
@@ -459,7 +457,7 @@ fn expression_list_as_array_initilization_is_annotated_correctly() {
         for exp in expressions {
             if let Some(data_type) = annotations.get_type_hint(exp, &index) {
                 let type_info = data_type.get_type_information();
-                assert!(matches!(type_info, DataTypeInformation::Integer { .. }))
+                assert!(matches!(type_info, DataTypeDefinition::Integer { .. }))
             } else {
                 unreachable!();
             }
@@ -477,7 +475,7 @@ fn expression_list_as_array_initilization_is_annotated_correctly() {
             let type_info = data_type.get_type_information();
             assert_eq!(
                 type_info,
-                &DataTypeInformation::String {
+                &DataTypeDefinition::String {
                     encoding: StringEncoding::Utf8,
                     size: TypeSize::from_literal(4),
                 }

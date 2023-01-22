@@ -7,7 +7,7 @@ use crate::{
         Index,
     },
     typesystem::{
-        DataType, DataTypeInformation, NativeByteType, NativeDintType, NativeDwordType, NativeIntType,
+        DataType, DataTypeDefinition, NativeByteType, NativeDintType, NativeDwordType, NativeIntType,
         NativeLintType, NativeLwordType, NativeSintType, NativeWordType, StringEncoding, DINT_SIZE, INT_SIZE,
         LINT_SIZE, SINT_SIZE, VOID_TYPE,
     },
@@ -198,7 +198,7 @@ pub fn evaluate_constants(mut index: Index) -> (Index, Vec<UnresolvableConstant>
                     //we found an Int-Value and we found the const's datatype to be an unsigned Integer type (e.g. WORD)
                     (
                         Ok(Some(AstStatement::LiteralInteger { value, id, location })),
-                        Some(DataTypeInformation::Integer { size, signed: false, .. }),
+                        Some(DataTypeDefinition::Integer { size, signed: false, .. }),
                     ) => {
                         // since we store literal-ints as i128 we need to truncate all of them down to their
                         // original size to avoid negative numbers
@@ -277,33 +277,34 @@ fn get_default_initializer(
     if let Some(init) = index.get_initial_value_for_type(target_type) {
         evaluate(init, None, index) //TODO do we ave a scope here?
     } else {
-        let dt = index.get_type_information_or_void(target_type);
+        let data_type = index.find_effective_type_by_name(target_type).unwrap_or_else(|| index.get_void_type());
+        let dt = data_type.get_type_information();
         let init = match dt {
-            DataTypeInformation::Pointer { .. } => {
+            DataTypeDefinition::Pointer { .. } => {
                 Some(AstStatement::LiteralNull { location: location.clone(), id })
             }
-            DataTypeInformation::Integer { .. } => {
+            DataTypeDefinition::Integer { .. } => {
                 Some(AstStatement::LiteralInteger { value: 0, location: location.clone(), id })
             }
-            DataTypeInformation::Enum { name, elements, .. } => elements
+            DataTypeDefinition::Enum { elements, .. } => elements
                 .get(0)
-                .and_then(|default_enum| index.find_enum_element(name, default_enum))
+                .and_then(|default_enum| index.find_enum_element(data_type.get_name(), default_enum))
                 .and_then(|enum_element| enum_element.initial_value)
                 .and_then(|initial_val| {
                     index.get_const_expressions().get_resolved_constant_statement(&initial_val)
                 })
                 .cloned(),
-            DataTypeInformation::Float { .. } => {
+            DataTypeDefinition::Float { .. } => {
                 Some(AstStatement::LiteralReal { value: "0.0".to_string(), location: location.clone(), id })
             }
-            DataTypeInformation::String { encoding, .. } => Some(AstStatement::LiteralString {
+            DataTypeDefinition::String { encoding, .. } => Some(AstStatement::LiteralString {
                 value: "".to_string(),
                 is_wide: encoding == &StringEncoding::Utf16,
                 location: location.clone(),
                 id,
             }),
-            DataTypeInformation::SubRange { referenced_type, .. }
-            | DataTypeInformation::Alias { referenced_type, .. } => {
+            DataTypeDefinition::SubRange { referenced_type, .. }
+            | DataTypeDefinition::Alias { referenced_type, .. } => {
                 return get_default_initializer(id, referenced_type, index, location)
             }
             _ => None,
@@ -329,7 +330,7 @@ fn cast_if_necessary(literal: AstStatement, target_type_name: &Option<&str>, ind
             AstStatement::LiteralString { value, id, location, is_wide: false } => {
                 if matches!(
                     data_type.get_type_information(),
-                    DataTypeInformation::String { encoding: StringEncoding::Utf16, .. }
+                    DataTypeDefinition::String { encoding: StringEncoding::Utf16, .. }
                 ) {
                     return AstStatement::LiteralString {
                         value: value.clone(),
@@ -342,7 +343,7 @@ fn cast_if_necessary(literal: AstStatement, target_type_name: &Option<&str>, ind
             AstStatement::LiteralString { value, id, location, is_wide: true } => {
                 if matches!(
                     data_type.get_type_information(),
-                    DataTypeInformation::String { encoding: StringEncoding::Utf8, .. }
+                    DataTypeDefinition::String { encoding: StringEncoding::Utf8, .. }
                 ) {
                     return AstStatement::LiteralString {
                         value: value.clone(),
@@ -394,9 +395,10 @@ pub fn evaluate_with_target_hint(
             )
         }
         AstStatement::CastStatement { target, type_name, .. } => match index
-            .find_effective_type_info(type_name)
+            .find_effective_type_by_name(type_name)
         {
-            Some(DataTypeInformation::Enum { name: enum_name, .. }) => {
+            Some(DataType {name: enum_name, information: DataTypeDefinition::Enum { .. }, ..}) => {
+                //TODO check for alias
                 if let AstStatement::Reference { name: ref_name, .. } = target.as_ref() {
                     return index
                         .find_enum_element(enum_name, ref_name)
@@ -610,7 +612,7 @@ fn get_cast_statement_literal(
     index: &Index,
 ) -> Result<AstStatement, String> {
     match index.find_effective_type_by_name(type_name).map(DataType::get_type_information) {
-        Some(&crate::typesystem::DataTypeInformation::Integer { signed, size, semantic_size, .. }) => {
+        Some(&crate::typesystem::DataTypeDefinition::Integer { signed, size, semantic_size, .. }) => {
             let evaluated_initial = evaluate(cast_statement, scope, index)?
                 .as_ref()
                 .map(|v| {

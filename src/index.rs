@@ -689,7 +689,7 @@ impl Default for TypeIndex {
             void_type: DataType::new(
                 VOID_TYPE.into(),
                 None,
-                DataTypeInformation::Void,
+                DataTypeDefinition::Void,
                 TypeNature::Any,
                 SymbolLocation::internal(),
             ),
@@ -722,7 +722,7 @@ impl TypeIndex {
     /// An effective type will be any end type i.e. Structs, Integers, Floats, String and Array
     pub fn find_effective_type<'ret>(&'ret self, data_type: &'ret DataType) -> Option<&'ret DataType> {
         match data_type.get_type_information() {
-            DataTypeInformation::Alias { referenced_type, .. } => {
+            DataTypeDefinition::Alias { referenced_type, .. } => {
                 self.find_type(referenced_type).and_then(|it| self.find_effective_type(it))
             }
             _ => Some(data_type),
@@ -831,7 +831,7 @@ impl Index {
 
                     match &mut e.information {
                         //import constant expressions in array-type-definitions
-                        DataTypeInformation::Array { dimensions, .. } => {
+                        DataTypeDefinition::Array { dimensions, .. } => {
                             for d in dimensions.iter_mut() {
                                 d.start_offset =
                                     self.import_type_size(&mut other.constant_expressions, &d.start_offset);
@@ -840,7 +840,7 @@ impl Index {
                             }
                         }
                         // import constant expressions in String-size defintions
-                        DataTypeInformation::String { size, .. } => {
+                        DataTypeDefinition::String { size, .. } => {
                             *size = self.import_type_size(&mut other.constant_expressions, size);
                         }
                         _ => {}
@@ -883,18 +883,20 @@ impl Index {
             let mut current = alias;
             let mut current_initial = alias.initial_value;
 
-            while let DataTypeInformation::Alias { referenced_type, .. } = current.get_type_information() {
+            while let DataTypeDefinition::Alias { referenced_type, .. } = current.get_type_information() {
                 current = self.type_index.find_type(referenced_type).unwrap_or(&type_index.void_type);
                 current_initial = current_initial.or(current.initial_value);
             }
 
-            if let DataTypeInformation::Struct { name, .. } = current.get_type_information() {
+            if let DataTypeDefinition::Struct { container_name, .. } = current.get_type_information() {
                 if alias != current {
                     // we aliased a struct, so we also need to register the members for that name
                     // we collect new struct fields,  until we can release the borrow on self
                     new_struct_members.push((
                         alias.get_name().to_string(),
-                        self.get_members(name).map(|it| it.values().cloned().collect()).unwrap_or_default(),
+                        self.get_members(container_name)
+                            .map(|it| it.values().cloned().collect())
+                            .unwrap_or_default(),
                     ));
                 }
             }
@@ -1137,7 +1139,7 @@ impl Index {
     }
 
     /// returns the effective DataTypeInformation of the type with the given name if it exists
-    pub fn find_effective_type_info(&self, type_name: &str) -> Option<&DataTypeInformation> {
+    pub fn find_effective_type_info(&self, type_name: &str) -> Option<&DataTypeDefinition> {
         self.find_effective_type_by_name(type_name).map(DataType::get_type_information)
     }
 
@@ -1155,10 +1157,10 @@ impl Index {
         let effective_type = self.type_index.get_effective_type_by_name(type_name);
 
         match effective_type.get_type_information() {
-            DataTypeInformation::SubRange { referenced_type, .. } => {
+            DataTypeDefinition::SubRange { referenced_type, .. } => {
                 self.get_intrinsic_type_by_name(referenced_type.as_str())
             }
-            DataTypeInformation::Enum { referenced_type, .. } => {
+            DataTypeDefinition::Enum { referenced_type, .. } => {
                 self.get_intrinsic_type_by_name(referenced_type)
             }
             _ => effective_type,
@@ -1179,12 +1181,10 @@ impl Index {
     }
 
     /// returns type aliased by Alias or SubRange    
-    fn get_aliased_target_type(&self, dt: &DataTypeInformation) -> Option<&DataType> {
+    fn get_aliased_target_type(&self, dt: &DataTypeDefinition) -> Option<&DataType> {
         match dt {
-            DataTypeInformation::SubRange { referenced_type, .. }
-            | DataTypeInformation::Alias { referenced_type, .. } => {
-                self.type_index.find_type(referenced_type)
-            }
+            DataTypeDefinition::SubRange { referenced_type, .. }
+            | DataTypeDefinition::Alias { referenced_type, .. } => self.type_index.find_type(referenced_type),
             _ => None,
         }
     }
@@ -1200,7 +1200,7 @@ impl Index {
         while initial_value.is_none()
             && matches!(
                 dt.map(|it| &it.information),
-                Some(DataTypeInformation::Alias { .. } | DataTypeInformation::SubRange { .. })
+                Some(DataTypeDefinition::Alias { .. } | DataTypeDefinition::SubRange { .. })
             )
         {
             //try to fetch initial value of the aliased type
@@ -1221,7 +1221,7 @@ impl Index {
         variable.and_then(|it| self.get_type(it.get_type_name()).ok())
     }
 
-    pub fn get_type_information_or_void(&self, type_name: &str) -> &DataTypeInformation {
+    pub fn get_type_information_or_void(&self, type_name: &str) -> &DataTypeDefinition {
         self.find_effective_type_by_name(type_name)
             .map(|it| it.get_type_information())
             .unwrap_or_else(|| self.get_void_type().get_type_information())
@@ -1428,33 +1428,34 @@ impl Index {
     /// this will return the built-in type behind alias / range-types
     pub fn find_intrinsic_type<'idx>(
         &'idx self,
-        initial_type: &'idx DataTypeInformation,
-    ) -> &'idx DataTypeInformation {
-        match initial_type {
-            DataTypeInformation::SubRange { .. } | DataTypeInformation::Alias { .. } => {
-                let inner_type_name = match initial_type {
-                    DataTypeInformation::SubRange { referenced_type, .. } => referenced_type,
-                    _ => initial_type.get_name(),
-                };
-                if let Some(inner_type) = self.find_effective_type_info(inner_type_name) {
-                    self.find_intrinsic_type(inner_type)
-                } else {
-                    initial_type
-                }
-            }
-            DataTypeInformation::Enum { referenced_type, .. } => {
-                self.find_effective_type_info(referenced_type).unwrap_or(initial_type)
-            }
-            _ => initial_type,
-        }
+        initial_type: &'idx DataTypeDefinition,
+    ) -> &'idx DataTypeDefinition {
+        // match initial_type {
+        //     DataTypeDefinition::SubRange { .. } | DataTypeDefinition::Alias { .. } => {
+        //         let inner_type_name = match initial_type {
+        //             DataTypeDefinition::SubRange { referenced_type, .. } => referenced_type,
+        //             _ => initial_type.get_name(),
+        //         };
+        //         if let Some(inner_type) = self.find_effective_type_info(inner_type_name) {
+        //             self.find_intrinsic_type(inner_type)
+        //         } else {
+        //             initial_type
+        //         }
+        //     }
+        //     DataTypeDefinition::Enum { referenced_type, .. } => {
+        //         self.find_effective_type_info(referenced_type).unwrap_or(initial_type)
+        //     }
+        //     _ => initial_type,
+        // }
+        initial_type
     }
 
     pub fn find_elementary_pointer_type<'idx>(
         &'idx self,
-        initial_type: &'idx DataTypeInformation,
-    ) -> &'idx DataTypeInformation {
+        initial_type: &'idx DataTypeDefinition,
+    ) -> &'idx DataTypeDefinition {
         match initial_type {
-            DataTypeInformation::Pointer { inner_type_name, .. } => {
+            DataTypeDefinition::Pointer { inner_type_name, .. } => {
                 let inner_type = self
                     .find_effective_type_info(inner_type_name)
                     .map(|t| self.find_intrinsic_type(t))
@@ -1497,28 +1498,29 @@ impl Index {
     /// returns the implementation of the sub-range-check-function for a variable of the given dataType
     pub fn find_range_check_implementation_for(
         &self,
-        range_type: &DataTypeInformation,
+        range_type: &DataType,
     ) -> Option<&ImplementationIndexEntry> {
-        match range_type {
-            DataTypeInformation::Integer { signed, size, .. } if *signed && *size <= 32 => {
-                self.find_pou_implementation(RANGE_CHECK_S_FN)
+        if let (Some(alias), Some(sub_range)) = (range_type.alias_of.as_ref(), range_type.sub_range.as_ref())
+        {
+            //traverse to the primitive type
+            self.find_effective_type_by_name(alias)
+                .and_then(|info| self.find_range_check_implementation_for(info))
+        } else {
+            match &range_type.information {
+                DataTypeDefinition::Integer { signed, size, .. } if *signed && *size <= 32 => {
+                    self.find_pou_implementation(RANGE_CHECK_S_FN)
+                }
+                DataTypeDefinition::Integer { signed, size, .. } if *signed && *size > 32 => {
+                    self.find_pou_implementation(RANGE_CHECK_LS_FN)
+                }
+                DataTypeDefinition::Integer { signed, size, .. } if !*signed && *size <= 32 => {
+                    self.find_pou_implementation(RANGE_CHECK_U_FN)
+                }
+                DataTypeDefinition::Integer { signed, size, .. } if !*signed && *size > 32 => {
+                    self.find_pou_implementation(RANGE_CHECK_LU_FN)
+                }
+                _ => None,
             }
-            DataTypeInformation::Integer { signed, size, .. } if *signed && *size > 32 => {
-                self.find_pou_implementation(RANGE_CHECK_LS_FN)
-            }
-            DataTypeInformation::Integer { signed, size, .. } if !*signed && *size <= 32 => {
-                self.find_pou_implementation(RANGE_CHECK_U_FN)
-            }
-            DataTypeInformation::Integer { signed, size, .. } if !*signed && *size > 32 => {
-                self.find_pou_implementation(RANGE_CHECK_LU_FN)
-            }
-            DataTypeInformation::Alias { name, .. }
-            | DataTypeInformation::SubRange { referenced_type: name, .. } => {
-                //traverse to the primitive type
-                self.find_effective_type_info(name)
-                    .and_then(|info| self.find_range_check_implementation_for(info))
-            }
-            _ => None,
         }
     }
 }

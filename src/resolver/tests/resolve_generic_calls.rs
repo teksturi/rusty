@@ -5,7 +5,7 @@ use crate::{
     resolver::{AnnotationMap, StatementAnnotation, TypeAnnotator},
     test_utils::tests::{annotate_with_ids, index_with_ids},
     typesystem::{
-        DataTypeInformation, DINT_TYPE, INT_TYPE, LREAL_TYPE, LWORD_TYPE, REAL_TYPE, SINT_TYPE, STRING_TYPE,
+        DataTypeDefinition, DINT_TYPE, INT_TYPE, LREAL_TYPE, LWORD_TYPE, REAL_TYPE, SINT_TYPE, STRING_TYPE,
     },
 };
 
@@ -487,7 +487,7 @@ fn builtin_adr_ref_return_annotated() {
         let reference_type = annotations.get_type_or_void(right, &index);
 
         match reference_type.get_type_information() {
-            DataTypeInformation::Pointer { inner_type_name, .. } => {
+            DataTypeDefinition::Pointer { inner_type_name, .. } => {
                 assert_eq!(actual_type.unwrap().get_name(), "__POINTER_TO_DINT");
                 assert_eq!(DINT_TYPE, index.find_effective_type_by_name(inner_type_name).unwrap().get_name())
             }
@@ -668,7 +668,7 @@ fn auto_pointer_of_generic_resolved() {
 
     let member = index.find_member("LEFT_EXT__DINT", "IN").unwrap();
     let dt = index.find_effective_type_info(&member.data_type_name).unwrap();
-    if let DataTypeInformation::Pointer { inner_type_name, auto_deref: true, .. } = dt {
+    if let DataTypeDefinition::Pointer { inner_type_name, auto_deref: true, .. } = dt {
         assert_eq!(inner_type_name, "DINT")
     } else {
         panic!("Expecting a pointer to dint, found {:?}", dt)
@@ -717,7 +717,7 @@ fn string_ref_as_generic_resolved() {
 
     let member = index.find_member("LEFT_EXT__STRING", "IN").unwrap();
     let dt = index.find_effective_type_info(&member.data_type_name).unwrap();
-    if let DataTypeInformation::Pointer { inner_type_name, auto_deref: true, .. } = dt {
+    if let DataTypeDefinition::Pointer { inner_type_name, auto_deref: true, .. } = dt {
         assert_eq!(inner_type_name, STRING_TYPE)
     } else {
         panic!("Expecting auto deref pointer to string, found {:?}", dt)
@@ -875,7 +875,7 @@ fn generic_string_functions_without_specific_implementation_are_annotated_correc
     let param = function.get(&"in".to_string()).unwrap();
 
     let datatype = index.get_type_information_or_void(param.get_type_name());
-    if let DataTypeInformation::Pointer { inner_type_name, .. } = datatype {
+    if let DataTypeDefinition::Pointer { inner_type_name, .. } = datatype {
         assert_eq!(inner_type_name, STRING_TYPE);
     } else {
         unreachable!("Not a pointer.")

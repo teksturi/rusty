@@ -9,7 +9,7 @@ use crate::{
     resolver::{AnnotationMap, AnnotationMapImpl, StatementAnnotation},
     test_utils::tests::{annotate_with_ids, codegen, index_with_ids},
     typesystem::{
-        DataTypeInformation, BOOL_TYPE, BYTE_TYPE, DINT_TYPE, DWORD_TYPE, INT_TYPE, LINT_TYPE, LREAL_TYPE,
+        DataTypeDefinition, BOOL_TYPE, BYTE_TYPE, DINT_TYPE, DWORD_TYPE, INT_TYPE, LINT_TYPE, LREAL_TYPE,
         LWORD_TYPE, REAL_TYPE, SINT_TYPE, UINT_TYPE, USINT_TYPE, VOID_TYPE, WORD_TYPE,
     },
 };
@@ -2663,7 +2663,7 @@ fn resolve_function_with_same_name_as_return_type() {
     let effective_type = index.find_effective_type_by_name("TIME").unwrap();
     assert_eq!(effective_type, associated_type);
     // AND should be Integer
-    assert!(matches!(effective_type.get_type_information(), DataTypeInformation::Integer { .. }))
+    assert!(matches!(effective_type.get_type_information(), DataTypeDefinition::Integer { .. }))
 }
 
 #[test]
@@ -2830,10 +2830,9 @@ fn address_of_is_annotated_correctly() {
     let s = &unit.implementations[0].statements[0];
     if let Some(&StatementAnnotation::Value { resulting_type }) = annotations.get(s).as_ref() {
         assert_eq!(
-            Some(&DataTypeInformation::Pointer {
+            Some(&DataTypeDefinition::Pointer {
                 auto_deref: false,
                 inner_type_name: "INT".to_string(),
-                name: "__POINTER_TO_INT".to_string(),
             }),
             index.find_effective_type_info(resulting_type),
         );

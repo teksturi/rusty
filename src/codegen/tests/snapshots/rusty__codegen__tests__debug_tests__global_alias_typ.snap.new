@@ -1,0 +1,23 @@
+---
+source: src/codegen/tests/debug_tests.rs
+assertion_line: 170
+expression: codegen.0
+---
+; ModuleID = 'main'
+source_filename = "main"
+
+@gInt = global i32 0, !dbg !0
+
+!llvm.dbg.cu = !{!7}
+
+!0 = !DIGlobalVariableExpression(var: !1, expr: !DIExpression())
+!1 = distinct !DIGlobalVariable(name: "gInt", scope: !2, file: !2, line: 5, type: !3, isLocal: false, isDefinition: true)
+!2 = !DIFile(filename: "main", directory: "")
+!3 = !DIDerivedType(tag: DW_TAG_typedef, name: "myInt", scope: !2, file: !2, line: 2, baseType: !4, align: 32)
+!4 = !DIDerivedType(tag: DW_TAG_typedef, name: "DINT", scope: !5, file: !5, line: 10, baseType: !6, align: 32)
+!5 = !DIFile(filename: "<internal>", directory: "")
+!6 = !DIBasicType(name: "int32", size: 32, encoding: DW_ATE_signed, flags: DIFlagPublic)
+!7 = distinct !DICompileUnit(language: DW_LANG_C, file: !2, producer: "RuSTy Structured text Compiler", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, enums: !8, globals: !9, splitDebugInlining: false)
+!8 = !{}
+!9 = !{!0}
+

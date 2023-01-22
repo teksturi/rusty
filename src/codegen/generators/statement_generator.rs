@@ -11,7 +11,7 @@ use crate::{
     diagnostics::{Diagnostic, INTERNAL_LLVM_ERROR},
     index::{ImplementationIndexEntry, Index},
     resolver::{AnnotationMap, AstAnnotations},
-    typesystem::{self, DataTypeInformation},
+    typesystem::{self, DataTypeDefinition},
 };
 use inkwell::{
     basic_block::BasicBlock,
@@ -188,7 +188,7 @@ impl<'a, 'b> StatementCodeGenerator<'a, 'b> {
         let left_type = exp_gen.get_type_hint_info_for(left_statement)?;
         // if the lhs-type is a subrange type we may need to generate a check-call
         // e.g. x := y,  ==> x := CheckSignedInt(y);
-        let range_checked_right_side = if let DataTypeInformation::SubRange { .. } = left_type {
+        let range_checked_right_side = if let DataTypeDefinition::SubRange { .. } = left_type {
             // there is a sub-range defined, so we need to wrap the right side into the check function if it exists
             self.annotations.get_hidden_function_call(right_statement)
         } else {
@@ -232,7 +232,7 @@ impl<'a, 'b> StatementCodeGenerator<'a, 'b> {
 
             //special case if we deal with a single bit, then we need to switch to a faked u1 type
             let right_type =
-                if let DataTypeInformation::Integer { semantic_size: Some(typesystem::U1_SIZE), .. } =
+                if let DataTypeDefinition::Integer { semantic_size: Some(typesystem::U1_SIZE), .. } =
                     *right_type.get_type_information()
                 {
                     self.index.get_type_or_panic(typesystem::U1_TYPE)

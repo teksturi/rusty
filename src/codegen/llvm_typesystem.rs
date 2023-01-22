@@ -11,7 +11,7 @@ use crate::{
     ast::SourceRange,
     diagnostics::Diagnostic,
     index::Index,
-    typesystem::{DataType, DataTypeInformation, StringEncoding},
+    typesystem::{DataType, DataTypeDefinition, StringEncoding},
 };
 
 use super::{generators::llvm::Llvm, llvm_index::LlvmTypedIndex};
@@ -20,8 +20,8 @@ pub fn promote_value_if_needed<'ctx>(
     context: &'ctx Context,
     builder: &Builder<'ctx>,
     lvalue: BasicValueEnum<'ctx>,
-    ltype: &DataTypeInformation,
-    target_type: &DataTypeInformation,
+    ltype: &DataTypeDefinition,
+    target_type: &DataTypeDefinition,
 ) -> Result<BasicValueEnum<'ctx>, Diagnostic> {
     //Is the target type int
     //Expand the current type to the target size
@@ -31,7 +31,7 @@ pub fn promote_value_if_needed<'ctx>(
     //Expand current type to target type
 
     match target_type {
-        DataTypeInformation::Integer { size: target_size, .. } => {
+        DataTypeDefinition::Integer { size: target_size, .. } => {
             // INT --> INT
             let int_value = lvalue.into_int_value();
             if int_value.get_type().get_bit_width() < *target_size {
@@ -46,7 +46,7 @@ pub fn promote_value_if_needed<'ctx>(
                 Ok(lvalue)
             }
         }
-        DataTypeInformation::Float { size: target_size, .. } => {
+        DataTypeDefinition::Float { size: target_size, .. } => {
             if lvalue.is_int_value() {
                 // INT --> FLOAT
                 let int_value = lvalue.into_int_value();
@@ -69,7 +69,7 @@ pub fn promote_value_if_needed<'ctx>(
                 }
             } else {
                 // FLOAT --> FLOAT
-                if let DataTypeInformation::Float { size, .. } = ltype {
+                if let DataTypeDefinition::Float { size, .. } = ltype {
                     if target_size <= size {
                         Ok(lvalue)
                     } else {
@@ -93,14 +93,14 @@ pub fn promote_value_if_needed<'ctx>(
 pub fn create_llvm_extend_int_value<'a>(
     builder: &Builder<'a>,
     lvalue: IntValue<'a>,
-    ltype: &DataTypeInformation,
+    ltype: &DataTypeDefinition,
     target_type: IntType<'a>,
 ) -> IntValue<'a> {
     match ltype {
-        DataTypeInformation::Integer { signed: true, .. } => {
+        DataTypeDefinition::Integer { signed: true, .. } => {
             builder.build_int_s_extend_or_bit_cast(lvalue, target_type, "")
         }
-        DataTypeInformation::Integer { signed: false, .. } => {
+        DataTypeDefinition::Integer { signed: false, .. } => {
             builder.build_int_z_extend_or_bit_cast(lvalue, target_type, "")
         }
         _ => unreachable!(),
@@ -141,9 +141,9 @@ pub fn cast_if_needed<'ctx>(
     }
 
     match target_type {
-        DataTypeInformation::Integer { signed, size: lsize, .. } => {
+        DataTypeDefinition::Integer { signed, size: lsize, .. } => {
             match value_type {
-                DataTypeInformation::Integer { .. } => {
+                DataTypeDefinition::Integer { .. } => {
                     //its important to use the real type's size here, because we may bot an i1 which is annotated as BOOL (8 bit)
                     let rsize = &value.get_type().into_int_type().get_bit_width();
                     if lsize < rsize {
@@ -162,7 +162,7 @@ pub fn cast_if_needed<'ctx>(
                             .map_err(|it| Diagnostic::relocate(it, statement.get_location()))
                     }
                 }
-                DataTypeInformation::Float { size: _rsize, .. } => {
+                DataTypeDefinition::Float { size: _rsize, .. } => {
                     if *signed {
                         Ok(llvm
                             .builder
@@ -182,7 +182,7 @@ pub fn cast_if_needed<'ctx>(
                             .into())
                     }
                 }
-                DataTypeInformation::String { encoding, .. } => {
+                DataTypeDefinition::String { encoding, .. } => {
                     if (*lsize == 8 && matches!(encoding, StringEncoding::Utf16))
                         || (*lsize == 16 && matches!(encoding, StringEncoding::Utf8))
                     {
@@ -201,7 +201,7 @@ pub fn cast_if_needed<'ctx>(
                         )
                         .into())
                 }
-                DataTypeInformation::Pointer { auto_deref: false, .. } => Ok(llvm
+                DataTypeDefinition::Pointer { auto_deref: false, .. } => Ok(llvm
                     .builder
                     .build_ptr_to_int(
                         value.into_pointer_value(),
@@ -217,12 +217,12 @@ pub fn cast_if_needed<'ctx>(
             }
         }
 
-        DataTypeInformation::Float {
+        DataTypeDefinition::Float {
             // generated_type,
             size: lsize,
             ..
         } => match value_type {
-            DataTypeInformation::Integer { signed, .. } => {
+            DataTypeDefinition::Integer { signed, .. } => {
                 if *signed {
                     Ok(builder
                         .build_signed_int_to_float(
@@ -241,7 +241,7 @@ pub fn cast_if_needed<'ctx>(
                         .into())
                 }
             }
-            DataTypeInformation::Float { size: rsize, .. } => {
+            DataTypeDefinition::Float { size: rsize, .. } => {
                 if lsize < rsize {
                     Ok(builder
                         .build_float_trunc(
@@ -261,8 +261,8 @@ pub fn cast_if_needed<'ctx>(
                 statement.get_location(),
             )),
         },
-        DataTypeInformation::String { encoding, .. } => match value_type {
-            DataTypeInformation::String { encoding: value_encoding, .. } => {
+        DataTypeDefinition::String { encoding, .. } => match value_type {
+            DataTypeDefinition::String { encoding: value_encoding, .. } => {
                 if encoding != value_encoding {
                     return Err(Diagnostic::casting_error(
                         value_type.get_name(),
@@ -278,8 +278,8 @@ pub fn cast_if_needed<'ctx>(
                 statement.get_location(),
             )),
         },
-        DataTypeInformation::Pointer { auto_deref: false, .. } => match value_type {
-            DataTypeInformation::Integer { .. } => Ok(llvm
+        DataTypeDefinition::Pointer { auto_deref: false, .. } => match value_type {
+            DataTypeDefinition::Integer { .. } => Ok(llvm
                 .builder
                 .build_int_to_ptr(
                     value.into_int_value(),
@@ -287,7 +287,7 @@ pub fn cast_if_needed<'ctx>(
                     "",
                 )
                 .into()),
-            DataTypeInformation::Pointer { .. } | DataTypeInformation::Void { .. } => {
+            DataTypeDefinition::Pointer { .. } | DataTypeDefinition::Void { .. } => {
                 let target_ptr_type = llvm_type_index.get_associated_type(target_type.get_name())?;
                 if value.get_type() != target_ptr_type {
                     // bit-cast necessary

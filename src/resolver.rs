@@ -21,7 +21,7 @@ use crate::{
     index::{symbol::SymbolLocation, Index, PouIndexEntry, VariableIndexEntry, VariableType},
     lexer::IdProvider,
     typesystem::{
-        self, get_bigger_type, DataTypeInformation, StringEncoding, BOOL_TYPE, BYTE_TYPE, DATE_AND_TIME_TYPE,
+        self, get_bigger_type, DataTypeDefinition, StringEncoding, BOOL_TYPE, BYTE_TYPE, DATE_AND_TIME_TYPE,
         DATE_TYPE, DINT_TYPE, DWORD_TYPE, LINT_TYPE, LREAL_TYPE, LWORD_TYPE, REAL_TYPE, TIME_OF_DAY_TYPE,
         TIME_TYPE, VOID_TYPE, WORD_TYPE,
     },
@@ -531,10 +531,10 @@ impl<'i> TypeAnnotator<'i> {
     ) {
         if let Some(expected_type) = self.annotation_map.get_type(annotated_left_side, self.index).cloned() {
             // for assignments on SubRanges check if there are range type check functions
-            if let DataTypeInformation::SubRange { sub_range, .. } = expected_type.get_type_information() {
+            if let DataTypeDefinition::SubRange { sub_range, .. } = expected_type.get_type_information() {
                 if let Some(statement) = self
                     .index
-                    .find_range_check_implementation_for(expected_type.get_type_information())
+                    .find_range_check_implementation_for(&expected_type)
                     .map(|f| {
                         crate::ast::create_call_to_check_function_ast(
                             f.get_call_name().to_string(),
@@ -584,7 +584,7 @@ impl<'i> TypeAnnotator<'i> {
                         .annotate_type_hint(elements, StatementAnnotation::value(expected_type.get_name()));
                 }
                 //annotate the array's member elements with the array's inner type
-                if let DataTypeInformation::Array { inner_type_name, .. } =
+                if let DataTypeDefinition::Array { inner_type_name, .. } =
                     expected_type.get_type_information()
                 {
                     if let Some(inner_type) = self.index.find_effective_type_by_name(inner_type_name) {
@@ -596,7 +596,7 @@ impl<'i> TypeAnnotator<'i> {
                 //struct initialization (left := right)
                 //find out left's type and update a type hint for right
                 if let (
-                    typesystem::DataTypeInformation::Struct { name: qualifier, .. },
+                    typesystem::DataTypeDefinition::Struct { container_name: qualifier, .. },
                     AstStatement::Reference { name: variable_name, .. },
                 ) = (expected_type.get_type_information(), left.as_ref())
                 {
@@ -636,7 +636,7 @@ impl<'i> TypeAnnotator<'i> {
                 if expected_type.get_type_information().is_float() {
                     self.annotation_map
                         .annotate(statement, StatementAnnotation::value(expected_type.get_name()))
-                } else if let DataTypeInformation::Array { inner_type_name, .. } =
+                } else if let DataTypeDefinition::Array { inner_type_name, .. } =
                     expected_type.get_type_information()
                 {
                     self.annotation_map
@@ -650,7 +650,7 @@ impl<'i> TypeAnnotator<'i> {
             AstStatement::LiteralString { .. } | AstStatement::BinaryExpression { .. } => {
                 // needed if we try to initialize an array with an expression-list
                 // without we would annotate a false type this would leed to an error in expression_generator
-                if let DataTypeInformation::Array { inner_type_name, .. } =
+                if let DataTypeDefinition::Array { inner_type_name, .. } =
                     expected_type.get_type_information()
                 {
                     self.annotation_map
@@ -697,7 +697,7 @@ impl<'i> TypeAnnotator<'i> {
                 self.update_expected_types(expected_type, initializer);
 
                 // handle annotation for array of struct
-                if let DataTypeInformation::Array { inner_type_name, .. } =
+                if let DataTypeDefinition::Array { inner_type_name, .. } =
                     expected_type.get_type_information()
                 {
                     let struct_type = self.index.get_effective_type_or_void_by_name(inner_type_name);
@@ -830,7 +830,7 @@ impl<'i> TypeAnnotator<'i> {
                 );
                 let array_type =
                     self.annotation_map.get_type_or_void(reference, self.index).get_type_information();
-                let inner_type_name = if let DataTypeInformation::Array { inner_type_name, .. } = array_type {
+                let inner_type_name = if let DataTypeDefinition::Array { inner_type_name, .. } = array_type {
                     Some(
                         self.index.get_effective_type_or_void_by_name(inner_type_name).get_name().to_string(),
                     )
@@ -846,7 +846,7 @@ impl<'i> TypeAnnotator<'i> {
                 visit_all_statements!(self, ctx, reference);
                 let pointer_type =
                     self.annotation_map.get_type_or_void(reference, self.index).get_type_information();
-                if let DataTypeInformation::Pointer { inner_type_name, .. } = pointer_type {
+                if let DataTypeDefinition::Pointer { inner_type_name, .. } = pointer_type {
                     let t = self
                         .index
                         .get_effective_type_by_name(inner_type_name)
@@ -964,7 +964,7 @@ impl<'i> TypeAnnotator<'i> {
 
                 let statement_type = if operator == &Operator::Minus {
                     let inner_type =
-                        self.annotation_map.get_type_or_void(value, self.index).get_type_information();
+                        self.annotation_map.get_type_or_void(value, self.index);
 
                     //keep the same type but switch to signed
                     typesystem::get_signed_type(inner_type, self.index).map(|it| it.get_name().to_string())
@@ -972,7 +972,6 @@ impl<'i> TypeAnnotator<'i> {
                     let inner_type = self
                         .annotation_map
                         .get_type_or_void(value, self.index)
-                        .get_type_information()
                         .get_name()
                         .to_string();
 
@@ -1133,8 +1132,9 @@ impl<'i> TypeAnnotator<'i> {
             }
             AstStatement::CastStatement { target, type_name, .. } => {
                 //see if this type really exists
-                let data_type = self.index.find_effective_type_info(type_name);
-                let statement_to_annotation = if let Some(DataTypeInformation::Enum { name, .. }) = data_type
+                let data_type = self.index.find_effective_type_by_name(type_name);
+
+                let statement_to_annotation = if let Some(typesystem::DataType { name, information: DataTypeDefinition::Enum{..}, ..}) = data_type  
                 {
                     //enum cast
                     self.visit_statement(&ctx.with_qualifier(name.to_string()), target);
@@ -1144,13 +1144,13 @@ impl<'i> TypeAnnotator<'i> {
                 } else if let Some(t) = data_type {
                     // special handling for unlucky casted-strings where caste-type does not match the literal encoding
                     // ´STRING#"abc"´ or ´WSTRING#'abc'´
-                    match (t, target.as_ref()) {
+                    match (t.get_type_information(), target.as_ref()) {
                         (
-                            DataTypeInformation::String { encoding: StringEncoding::Utf8, .. },
+                            DataTypeDefinition::String { encoding: StringEncoding::Utf8, .. },
                             AstStatement::LiteralString { value, is_wide: is_wide @ true, location, id },
                         )
                         | (
-                            DataTypeInformation::String { encoding: StringEncoding::Utf16, .. },
+                            DataTypeDefinition::String { encoding: StringEncoding::Utf16, .. },
                             AstStatement::LiteralString { value, is_wide: is_wide @ false, location, id },
                         ) => {
                             // visit the target-statement as if the programmer used the correct quotes to prevent
@@ -1255,13 +1255,13 @@ impl<'i> TypeAnnotator<'i> {
                                     self.annotation_map.get_type(parameter, self.index)
                                 {
                                     match &data_type.information {
-                                        DataTypeInformation::Float { .. } => get_bigger_type(
+                                        DataTypeDefinition::Float { .. } => get_bigger_type(
                                             data_type,
                                             self.index.get_type_or_panic(LREAL_TYPE),
                                             self.index,
                                         )
                                         .get_name(),
-                                        DataTypeInformation::Integer { .. }
+                                        DataTypeDefinition::Integer { .. }
                                             if !&data_type.information.is_bool() =>
                                         {
                                             get_bigger_type(
@@ -1446,7 +1446,7 @@ fn register_string_type(index: &mut Index, is_wide: bool, len: usize) -> String 
         index.register_type(crate::typesystem::DataType::new(
             new_type_name.clone(),
             None,
-            crate::typesystem::DataTypeInformation::String {
+            crate::typesystem::DataTypeDefinition::String {
                 encoding: if is_wide { StringEncoding::Utf16 } else { StringEncoding::Utf8 },
                 size: typesystem::TypeSize::LiteralInteger(len as i64 + 1),
             },
@@ -1465,10 +1465,9 @@ pub(crate) fn add_pointer_type(index: &mut Index, inner_type_name: String) -> St
         index.register_type(crate::typesystem::DataType::new(
             new_type_name.clone(),
             None,
-            crate::typesystem::DataTypeInformation::Pointer {
+            crate::typesystem::DataTypeDefinition::Pointer {
                 auto_deref: false,
                 inner_type_name,
-                name: new_type_name.clone(),
             },
             TypeNature::Any,
             SymbolLocation::internal(),
@@ -1493,7 +1492,7 @@ fn to_variable_annotation(
             // passed by-ref
             (v_type.get_name().to_string(), AUTO_DEREF)
         }
-        (DataTypeInformation::Pointer { inner_type_name, auto_deref: true, .. }, _) => {
+        (DataTypeDefinition::Pointer { inner_type_name, auto_deref: true, .. }, _) => {
             // real auto-deref pointer
             (inner_type_name.clone(), AUTO_DEREF)
         }

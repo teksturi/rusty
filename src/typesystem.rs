@@ -106,41 +106,43 @@ pub struct DataType {
     /// the initial value defined on the TYPE-declaration
     pub initial_value: Option<ConstId>,
     /// the dataTypeInformation which holds information about the type's category (numeric, array, string, etc.)
-    pub information: DataTypeInformation,
+    pub information: DataTypeDefinition,
     /// the type's nature according to IEC61131-3
     pub nature: TypeNature,
     /// the location of the type's declaration
     pub location: SymbolLocation,
     /// the name of the original type this is aliasing
     pub alias_of: Option<String>,
+    /// an optional range limitation of the type (for sub-range types)
+    pub sub_range: Option<Range<AstStatement>>,
+
 }
 
 impl DataType {
     pub fn new(
         name: String,
         initial_value: Option<ConstId>,
-        information: DataTypeInformation,
+        information: DataTypeDefinition,
         nature: TypeNature,
         location: SymbolLocation,
     ) -> Self {
-        Self { name, initial_value, nature, location, information, alias_of: None }
+        Self { name, initial_value, nature, location, information, alias_of: None, sub_range: None }
     }
 
     pub fn get_name(&self) -> &str {
         self.name.as_str()
     }
 
-    pub fn get_type_information(&self) -> &DataTypeInformation {
+    pub fn get_type_information(&self) -> &DataTypeDefinition {
         &self.information
     }
 
-    pub fn clone_type_information(&self) -> DataTypeInformation {
+    pub fn clone_type_information(&self) -> DataTypeDefinition {
         self.information.clone()
     }
 
-    pub fn has_nature(&self, nature: TypeNature, index: &Index) -> bool {
-        let type_nature = index.get_intrinsic_type_by_name(self.get_name()).nature;
-        type_nature.derives(nature)
+    pub fn has_nature(&self, nature: TypeNature) -> bool {
+        self.nature.derives(nature)
     }
 
     pub fn is_numerical(&self) -> bool {
@@ -149,6 +151,10 @@ impl DataType {
 
     pub fn is_real(&self) -> bool {
         self.nature.is_real()
+    }
+
+    pub fn is_char(&self) -> bool {
+        self.has_nature(TypeNature::Char)
     }
 
     /// returns true if this type is an internal, auto-generated type
@@ -175,8 +181,10 @@ impl DataType {
             nature,
             location,
             alias_of: Some(self.get_name().to_string()),
+            sub_range: self.sub_range.clone(),
         }
     }
+    
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -259,24 +267,21 @@ pub enum StructSource {
 type TypeId = String;
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum DataTypeInformation {
+pub enum DataTypeDefinition {
     Struct {
-        name: TypeId,
+        container_name: String, 
         member_names: Vec<String>,
         source: StructSource,
     },
     Array {
-        name: TypeId,
         inner_type_name: TypeId,
         dimensions: Vec<Dimension>,
     },
     Pointer {
-        name: TypeId,
         inner_type_name: TypeId,
         auto_deref: bool,
     },
     Integer {
-        name: TypeId,
         signed: bool,
         /// the number of bit stored in memory
         size: u32,
@@ -284,12 +289,10 @@ pub enum DataTypeInformation {
         semantic_size: Option<u32>,
     },
     Enum {
-        name: TypeId,
         referenced_type: TypeId,
         elements: Vec<String>,
     },
     Float {
-        name: TypeId,
         size: u32,
     },
     String {
@@ -297,108 +300,90 @@ pub enum DataTypeInformation {
         encoding: StringEncoding,
     },
     SubRange {
-        name: TypeId,
         referenced_type: TypeId,
         sub_range: Range<AstStatement>,
     },
     Alias {
-        name: TypeId,
         referenced_type: TypeId,
     },
     Generic {
-        name: TypeId,
         generic_symbol: String,
         nature: TypeNature,
     },
     Void,
 }
 
-impl DataTypeInformation {
-    pub fn get_name(&self) -> &str {
-        match self {
-            DataTypeInformation::Struct { name, .. }
-            | DataTypeInformation::Array { name, .. }
-            | DataTypeInformation::Pointer { name, .. }
-            | DataTypeInformation::Integer { name, .. }
-            | DataTypeInformation::Float { name, .. }
-            | DataTypeInformation::SubRange { name, .. }
-            | DataTypeInformation::Alias { name, .. }
-            | DataTypeInformation::Enum { name, .. }
-            | DataTypeInformation::Generic { name, .. } => name,
-            DataTypeInformation::String { encoding: StringEncoding::Utf8, .. } => "STRING",
-            DataTypeInformation::String { encoding: StringEncoding::Utf16, .. } => "WSTRING",
-            DataTypeInformation::Void => "VOID",
-        }
-    }
+impl DataTypeDefinition {
 
     pub fn is_string(&self) -> bool {
-        matches!(self, DataTypeInformation::String { .. })
+        matches!(self, DataTypeDefinition::String { .. })
     }
 
-    pub fn is_character(&self) -> bool {
-        match self {
-            DataTypeInformation::Integer { name, .. } => name == WCHAR_TYPE || name == CHAR_TYPE,
-            _ => false,
-        }
-    }
+    //TODO
+    // pub fn is_character(&self) -> bool {
+    //     match self {
+    //         DataTypeDefinition::Integer { name, .. } => name == WCHAR_TYPE || name == CHAR_TYPE,
+    //         _ => false,
+    //     }
+    // }
 
     pub fn is_int(&self) -> bool {
         // internally an enum is represented as a DINT
-        matches!(self, DataTypeInformation::Integer { .. } | DataTypeInformation::Enum { .. })
+        matches!(self, DataTypeDefinition::Integer { .. } | DataTypeDefinition::Enum { .. })
     }
 
     pub fn is_bool(&self) -> bool {
-        matches!(self, DataTypeInformation::Integer { semantic_size: Some(1), .. })
+        matches!(self, DataTypeDefinition::Integer { semantic_size: Some(1), .. })
     }
 
     pub fn is_pointer(&self) -> bool {
-        matches!(self, DataTypeInformation::Pointer { .. })
+        matches!(self, DataTypeDefinition::Pointer { .. })
     }
 
     pub fn is_unsigned_int(&self) -> bool {
-        matches!(self, DataTypeInformation::Integer { signed: false, .. })
+        matches!(self, DataTypeDefinition::Integer { signed: false, .. })
     }
 
     pub fn is_signed_int(&self) -> bool {
-        matches!(self, DataTypeInformation::Integer { signed: true, .. })
+        matches!(self, DataTypeDefinition::Integer { signed: true, .. })
     }
 
     pub fn is_float(&self) -> bool {
-        matches!(self, DataTypeInformation::Float { .. })
+        matches!(self, DataTypeDefinition::Float { .. })
     }
 
     pub fn is_struct(&self) -> bool {
-        matches!(self, DataTypeInformation::Struct { .. })
+        matches!(self, DataTypeDefinition::Struct { .. })
     }
 
     pub fn is_array(&self) -> bool {
-        matches!(self, DataTypeInformation::Array { .. })
+        matches!(self, DataTypeDefinition::Array { .. })
     }
 
     pub fn is_numerical(&self) -> bool {
         matches!(
             self,
-            DataTypeInformation::Integer { .. }
-                | DataTypeInformation::Float { .. }
-                | &DataTypeInformation::Enum { .. } // internally an enum is represented as a DINT
+            DataTypeDefinition::Integer { .. }
+                | DataTypeDefinition::Float { .. }
+                | &DataTypeDefinition::Enum { .. } // internally an enum is represented as a DINT
         )
     }
 
     pub fn is_generic(&self, index: &Index) -> bool {
         match self {
-            DataTypeInformation::Array { inner_type_name, .. }
-            | DataTypeInformation::Pointer { inner_type_name, .. }
-            | DataTypeInformation::Alias { referenced_type: inner_type_name, .. } => index
+            DataTypeDefinition::Array { inner_type_name, .. }
+            | DataTypeDefinition::Pointer { inner_type_name, .. }
+            | DataTypeDefinition::Alias { referenced_type: inner_type_name, .. } => index
                 .find_effective_type_by_name(inner_type_name)
                 .map(|dt| dt.get_type_information().is_generic(index))
                 .unwrap_or(false),
-            DataTypeInformation::Generic { .. } => true,
+            DataTypeDefinition::Generic { .. } => true,
             _ => false,
         }
     }
     /// returns the number of bits of this type, as understood by IEC61131 (may be smaller than get_size(...))
     pub fn get_semantic_size(&self, index: &Index) -> u32 {
-        if let DataTypeInformation::Integer { semantic_size: Some(s), .. } = self {
+        if let DataTypeDefinition::Integer { semantic_size: Some(s), .. } = self {
             return *s;
         }
         self.get_size_in_bits(index)
@@ -411,16 +396,16 @@ impl DataTypeInformation {
 
     pub fn get_size(&self, index: &Index) -> Bytes {
         match self {
-            DataTypeInformation::Integer { size, .. } => Bytes::from_bits(*size),
-            DataTypeInformation::Float { size, .. } => Bytes::from_bits(*size),
-            DataTypeInformation::String { size, encoding } => size
+            DataTypeDefinition::Integer { size, .. } => Bytes::from_bits(*size),
+            DataTypeDefinition::Float { size, .. } => Bytes::from_bits(*size),
+            DataTypeDefinition::String { size, encoding } => size
                 .as_int_value(index)
                 .map(|size| encoding.get_bytes_per_char() * size as u32)
                 .map(Bytes::from_bits)
                 .unwrap(),
-            DataTypeInformation::Struct { member_names, .. } => member_names
+            DataTypeDefinition::Struct { member_names, container_name, .. } => member_names
                 .iter()
-                .filter_map(|it| index.find_member(self.get_name(), it))
+                .filter_map(|it| index.find_member(&container_name, it))
                 .map(|it| it.get_type_name())
                 .fold(MemoryLocation::new(0), |prev, it| {
                     let type_info = index.get_type_information_or_void(it);
@@ -430,24 +415,24 @@ impl DataTypeInformation {
                     MemoryLocation::new(res)
                 })
                 .into(),
-            DataTypeInformation::Array { inner_type_name, dimensions, .. } => {
+            DataTypeDefinition::Array { inner_type_name, dimensions, .. } => {
                 let inner_type = index.get_type_information_or_void(inner_type_name);
                 let inner_size = inner_type.get_size_in_bits(index);
                 let element_count: u32 =
                     dimensions.iter().map(|dim| dim.get_length(index).unwrap()).product();
                 Bytes::from_bits(inner_size * element_count)
             }
-            DataTypeInformation::Pointer { .. } => Bytes::from_bits(POINTER_SIZE),
-            DataTypeInformation::Alias { referenced_type, .. }
-            | DataTypeInformation::SubRange { referenced_type, .. } => {
+            DataTypeDefinition::Pointer { .. } => Bytes::from_bits(POINTER_SIZE),
+            DataTypeDefinition::Alias { referenced_type, .. }
+            | DataTypeDefinition::SubRange { referenced_type, .. } => {
                 let inner_type = index.get_type_information_or_void(referenced_type);
                 inner_type.get_size(index)
             }
-            DataTypeInformation::Enum { referenced_type, .. } => index
+            DataTypeDefinition::Enum { referenced_type, .. } => index
                 .find_effective_type_info(referenced_type)
                 .map(|it| it.get_size(index))
                 .unwrap_or_else(|| Bytes::from_bits(DINT_SIZE)),
-            DataTypeInformation::Generic { .. } | DataTypeInformation::Void => Bytes::from_bits(0),
+            DataTypeDefinition::Generic { .. } | DataTypeDefinition::Void => Bytes::from_bits(0),
         }
     }
 
@@ -455,16 +440,16 @@ impl DataTypeInformation {
     pub fn get_string_character_width(&self, index: &Index) -> Bytes {
         let type_layout = index.get_type_layout();
         match self {
-            DataTypeInformation::String { encoding: StringEncoding::Utf8, .. } => type_layout.i8,
-            DataTypeInformation::String { encoding: StringEncoding::Utf16, .. } => type_layout.i16,
-            _ => unreachable!("Expected string found {}", self.get_name()),
+            DataTypeDefinition::String { encoding: StringEncoding::Utf8, .. } => type_layout.i8,
+            DataTypeDefinition::String { encoding: StringEncoding::Utf16, .. } => type_layout.i16,
+            _ => unreachable!("Expected string found {}", self.to_str()),
         }
     }
 
     pub fn get_alignment(&self, index: &Index) -> Bytes {
         let type_layout = index.get_type_layout();
         match self {
-            DataTypeInformation::Array { inner_type_name, .. } => {
+            DataTypeDefinition::Array { inner_type_name, .. } => {
                 let inner_type = index.get_type_information_or_void(inner_type_name);
                 if inner_type.get_alignment(index) > type_layout.i64 {
                     type_layout.v128
@@ -472,10 +457,10 @@ impl DataTypeInformation {
                     type_layout.v64
                 }
             }
-            DataTypeInformation::Struct { .. } => type_layout.aggregate,
-            DataTypeInformation::String { .. } => type_layout.v64, //Strings are arrays
-            DataTypeInformation::Pointer { .. } => type_layout.p64,
-            DataTypeInformation::Integer { size, semantic_size, .. } => {
+            DataTypeDefinition::Struct { .. } => type_layout.aggregate,
+            DataTypeDefinition::String { .. } => type_layout.v64, //Strings are arrays
+            DataTypeDefinition::Pointer { .. } => type_layout.p64,
+            DataTypeDefinition::Integer { size, semantic_size, .. } => {
                 if let Some(1) = semantic_size {
                     type_layout.i1
                 } else {
@@ -488,18 +473,18 @@ impl DataTypeInformation {
                     }
                 }
             }
-            DataTypeInformation::Enum { referenced_type, .. } => {
+            DataTypeDefinition::Enum { referenced_type, .. } => {
                 index.get_type_information_or_void(referenced_type).get_alignment(index)
             }
-            DataTypeInformation::Float { size, .. } => match size {
+            DataTypeDefinition::Float { size, .. } => match size {
                 32 => type_layout.f32,
                 64 => type_layout.f64,
                 _ => type_layout.p64,
             },
-            DataTypeInformation::SubRange { referenced_type, .. } => {
+            DataTypeDefinition::SubRange { referenced_type, .. } => {
                 index.get_type_information_or_void(referenced_type).get_alignment(index)
             }
-            DataTypeInformation::Alias { referenced_type, .. } => {
+            DataTypeDefinition::Alias { referenced_type, .. } => {
                 index.get_type_information_or_void(referenced_type).get_alignment(index)
             }
             _ => type_layout.i8,
@@ -509,34 +494,34 @@ impl DataTypeInformation {
     fn is_agregate(&self) -> bool {
         matches!(
             self,
-            DataTypeInformation::Struct { .. }
-                | DataTypeInformation::Array { .. }
-                | DataTypeInformation::String { .. }
+            DataTypeDefinition::Struct { .. }
+                | DataTypeDefinition::Array { .. }
+                | DataTypeDefinition::String { .. }
         )
     }
 
-    fn clone_with_new_name(&self, new_name: String) -> DataTypeInformation {
+    fn clone_with_new_name(&self, new_name: String) -> DataTypeDefinition {
         let mut cpy = self.clone();
-        cpy.set_name(new_name);
+        // cpy.set_name(new_name);
         cpy
     }
 
-    fn set_name(&mut self, new_name: String) {
+    fn to_str(&self)-> &str {
         match self {
-            DataTypeInformation::Struct { ref mut name, .. }
-            | DataTypeInformation::Array { ref mut name, ..}
-            | DataTypeInformation::Pointer { ref mut name, ..}
-            | DataTypeInformation::Integer { ref mut name, ..}
-            | DataTypeInformation::Enum { ref mut name, ..}
-            | DataTypeInformation::Float { ref mut name, ..}
-            // | DataTypeInformation::String { ref mut name, ..}
-            | DataTypeInformation::SubRange { ref mut name, ..}
-            | DataTypeInformation::Alias { ref mut name, ..}
-            | DataTypeInformation::Generic { ref mut name, ..} => *name = new_name,
-            DataTypeInformation::Void => {},
-            DataTypeInformation::String {  .. } => {},
+            DataTypeDefinition::Struct { .. } => "Struct",
+            DataTypeDefinition::Array { .. } => "Array",
+            DataTypeDefinition::Pointer { .. } => "Pointer",
+            DataTypeDefinition::Integer { .. } => "Integer",
+            DataTypeDefinition::Enum { .. } => "Enum",
+            DataTypeDefinition::Float { .. } => "Float",
+            DataTypeDefinition::String { .. } => "String",
+            DataTypeDefinition::SubRange { .. } => "SubRange",
+            DataTypeDefinition::Alias { .. } => "Alias",
+            DataTypeDefinition::Generic { .. } => "Generic",
+            DataTypeDefinition::Void => "Void",
         }
     }
+
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -565,24 +550,24 @@ impl Dimension {
     }
 }
 
-pub trait DataTypeInformationProvider<'a>: Into<&'a DataTypeInformation> {
-    fn get_type_information(&self) -> &DataTypeInformation;
+pub trait DataTypeInformationProvider<'a>: Into<&'a DataTypeDefinition> {
+    fn get_type_information(&self) -> &DataTypeDefinition;
 }
 
-impl<'a> DataTypeInformationProvider<'a> for &'a DataTypeInformation {
-    fn get_type_information(&self) -> &'a DataTypeInformation {
+impl<'a> DataTypeInformationProvider<'a> for &'a DataTypeDefinition {
+    fn get_type_information(&self) -> &'a DataTypeDefinition {
         self
     }
 }
 
-impl<'a> From<&'a DataType> for &'a DataTypeInformation {
+impl<'a> From<&'a DataType> for &'a DataTypeDefinition {
     fn from(dt: &'a DataType) -> Self {
         dt.get_type_information()
     }
 }
 
 impl<'a> DataTypeInformationProvider<'a> for &'a DataType {
-    fn get_type_information(&self) -> &DataTypeInformation {
+    fn get_type_information(&self) -> &DataTypeDefinition {
         DataType::get_type_information(self)
     }
 }
@@ -592,8 +577,7 @@ macro_rules! int_type {
         DataType {
             name: $name,
             initial_value: None,
-            information: DataTypeInformation::Integer {
-                name: $name,
+            information: DataTypeDefinition::Integer {
                 signed: $signed,
                 size: $size,
                 semantic_size: None,
@@ -601,6 +585,7 @@ macro_rules! int_type {
             nature: $nature,
             location: SymbolLocation::internal(),
             alias_of: None,
+            sub_range: None,
         }
     };
 }
@@ -610,7 +595,7 @@ pub fn get_builtin_types() -> Vec<DataType> {
         DataType::new(
             "VOID".into(),
             None,
-            DataTypeInformation::Void,
+            DataTypeDefinition::Void,
             TypeNature::Any,
             SymbolLocation::internal(),
         ),
@@ -626,8 +611,7 @@ pub fn get_builtin_types() -> Vec<DataType> {
         DataType::new(
             BOOL_TYPE.into(),
             None,
-            DataTypeInformation::Integer {
-                name: BOOL_TYPE.into(),
+            DataTypeDefinition::Integer {
                 signed: false,
                 size: BOOL_SIZE,
                 semantic_size: Some(1),
@@ -638,21 +622,21 @@ pub fn get_builtin_types() -> Vec<DataType> {
         DataType::new(
             F32_TYPE.into(),
             None,
-            DataTypeInformation::Float { name: F32_TYPE.into(), size: 32 },
+            DataTypeDefinition::Float { size: 32 },
             TypeNature::Real,
             SymbolLocation::internal(),
         ),
         DataType::new(
             F64_TYPE.into(),
             None,
-            DataTypeInformation::Float { name: F64_TYPE.into(), size: 64 },
+            DataTypeDefinition::Float { size: 64 },
             TypeNature::Real,
             SymbolLocation::internal(),
         ),
         DataType::new(
             STRING_TYPE.into(),
             None,
-            DataTypeInformation::String {
+            DataTypeDefinition::String {
                 size: TypeSize::from_literal((DEFAULT_STRING_LEN + 1).into()),
                 encoding: StringEncoding::Utf8,
             },
@@ -662,7 +646,7 @@ pub fn get_builtin_types() -> Vec<DataType> {
         DataType::new(
             WSTRING_TYPE.into(),
             None,
-            DataTypeInformation::String {
+            DataTypeDefinition::String {
                 size: TypeSize::from_literal((DEFAULT_STRING_LEN + 1).into()),
                 encoding: StringEncoding::Utf16,
             },
@@ -672,8 +656,7 @@ pub fn get_builtin_types() -> Vec<DataType> {
         DataType::new(
             CHAR_TYPE.into(),
             None,
-            DataTypeInformation::Integer {
-                name: CHAR_TYPE.into(),
+            DataTypeDefinition::Integer {
                 signed: false,
                 size: 8,
                 semantic_size: None,
@@ -684,8 +667,7 @@ pub fn get_builtin_types() -> Vec<DataType> {
         DataType::new(
             WCHAR_TYPE.into(),
             None,
-            DataTypeInformation::Integer {
-                name: WCHAR_TYPE.into(),
+            DataTypeDefinition::Integer {
                 signed: false,
                 size: 16,
                 semantic_size: None,
@@ -696,54 +678,55 @@ pub fn get_builtin_types() -> Vec<DataType> {
     ]
 }
 
-fn get_rank(type_information: &DataTypeInformation, index: &Index) -> u32 {
+fn get_rank(type_information: &DataTypeDefinition, index: &Index) -> u32 {
     match type_information {
-        DataTypeInformation::Integer { signed, size, .. } => {
+        DataTypeDefinition::Integer { signed, size, .. } => {
             if *signed {
                 *size + 1
             } else {
                 *size
             }
         }
-        DataTypeInformation::Float { size, .. } => size + 1000,
-        DataTypeInformation::String { size, .. } => match size {
+        DataTypeDefinition::Float { size, .. } => size + 1000,
+        DataTypeDefinition::String { size, .. } => match size {
             TypeSize::LiteralInteger(size) => (*size).try_into().unwrap(),
             TypeSize::ConstExpression(_) => todo!("String rank with CONSTANTS"),
         },
-        DataTypeInformation::Enum { referenced_type, .. } => {
+        DataTypeDefinition::Enum { referenced_type, .. } => {
             index.find_effective_type_info(referenced_type).map(|it| get_rank(it, index)).unwrap_or(DINT_SIZE)
         }
-        DataTypeInformation::SubRange { name, .. } | DataTypeInformation::Alias { name, .. } => {
-            get_rank(index.get_intrinsic_type_by_name(name).get_type_information(), index)
-        }
+        //TODO
+        // DataTypeDefinition::SubRange { name, .. } | DataTypeDefinition::Alias { name, .. } => {
+        //     get_rank(index.get_intrinsic_type_by_name(name).get_type_information(), index)
+        // }
         _ => type_information.get_size_in_bits(index),
     }
 }
 
 /// Returns true if provided types have the same type nature
 /// i.e. Both are numeric or both are floats
-pub fn is_same_type_class(ltype: &DataTypeInformation, rtype: &DataTypeInformation, index: &Index) -> bool {
+pub fn is_same_type_class(ltype: &DataTypeDefinition, rtype: &DataTypeDefinition, index: &Index) -> bool {
     let ltype = index.find_intrinsic_type(ltype);
     let rtype = index.find_intrinsic_type(rtype);
 
     match ltype {
-        DataTypeInformation::Integer { .. } => matches!(rtype, DataTypeInformation::Integer { .. }),
-        DataTypeInformation::Float { .. } => matches!(rtype, DataTypeInformation::Float { .. }),
-        DataTypeInformation::String { encoding: lenc, .. } => {
-            matches!(rtype, DataTypeInformation::String { encoding, .. } if encoding == lenc)
+        DataTypeDefinition::Integer { .. } => matches!(rtype, DataTypeDefinition::Integer { .. }),
+        DataTypeDefinition::Float { .. } => matches!(rtype, DataTypeDefinition::Float { .. }),
+        DataTypeDefinition::String { encoding: lenc, .. } => {
+            matches!(rtype, DataTypeDefinition::String { encoding, .. } if encoding == lenc)
         }
 
         // We have to handle 3 different cases here:
         // 1. foo := ADR(bar)
         // 2. foo := REF(bar)
         // 3. foo := &bar
-        DataTypeInformation::Pointer { .. } => match rtype {
+        DataTypeDefinition::Pointer { .. } => match rtype {
             // Case 1: ADR(bar) returns a LWORD value, thus check if we're working with a LWORD
-            DataTypeInformation::Integer { size, .. } => *size == POINTER_SIZE,
+            DataTypeDefinition::Integer { size, .. } => *size == POINTER_SIZE,
 
             // Case 2 & 3:
             // REF(bar) and &bar returns a pointer, thus deduce their inner types and check if they're equal
-            DataTypeInformation::Pointer { .. } => {
+            DataTypeDefinition::Pointer { .. } => {
                 let ldetails = index.find_elementary_pointer_type(ltype);
                 let rdetails = index.find_elementary_pointer_type(rtype);
 
@@ -767,8 +750,8 @@ pub fn get_bigger_type<'t, T: DataTypeInformationProvider<'t> + std::convert::Fr
     let lt = left_type.get_type_information();
     let rt = right_type.get_type_information();
 
-    let ldt = index.get_type(lt.get_name());
-    let rdt = index.get_type(rt.get_name());
+    let ldt = index.get_type(left_type.get_name());
+    let rdt = index.get_type(right_type.get_name());
 
     // if left and right have the same type, check which ranks higher
     if is_same_type_class(lt, rt, index) {
@@ -794,10 +777,10 @@ pub fn get_bigger_type<'t, T: DataTypeInformationProvider<'t> + std::convert::Fr
 /// returns the signed version of the given data_type if its a signed int-type
 /// returns the original type if it is no signed int-type
 pub fn get_signed_type<'t>(
-    data_type: &'t DataTypeInformation,
+    data_type: &'t DataType,
     index: &'t Index,
-) -> Option<&'t DataTypeInformation> {
-    if data_type.is_int() {
+) -> Option<&'t DataType> {
+    if data_type.get_type_information().is_int() {
         let signed_type = match data_type.get_name() {
             BYTE_TYPE => SINT_TYPE,
             USINT_TYPE => SINT_TYPE,
@@ -809,7 +792,7 @@ pub fn get_signed_type<'t>(
             LWORD_TYPE => LINT_TYPE,
             _ => data_type.get_name(),
         };
-        return index.get_type(signed_type).ok().map(|t| t.get_type_information());
+        return index.get_type(signed_type).ok();
     }
     Some(data_type)
 }

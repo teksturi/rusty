@@ -32,7 +32,7 @@ use crate::{
         llvm_index::LlvmTypedIndex,
         llvm_typesystem::{cast_if_needed, get_llvm_int_type},
     },
-    typesystem::{DataType, DataTypeInformation},
+    typesystem::{DataType, DataTypeDefinition},
 };
 
 use super::{llvm::Llvm, statement_generator::FunctionContext};
@@ -375,7 +375,7 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
         &self,
         access: &DirectAccessType,
         index: &AstStatement,
-        access_type: &DataTypeInformation,
+        access_type: &DataTypeDefinition,
         target_type: &DataType,
     ) -> Result<IntValue<'ink>, Diagnostic> {
         let reference = self.generate_expression(index)?;
@@ -747,7 +747,7 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
                 //find the parameter's type and name
                 .map(|it| {
                     let name = it.get_type_name();
-                    if let Some(DataTypeInformation::Pointer { inner_type_name, auto_deref: true, .. }) =
+                    if let Some(DataTypeDefinition::Pointer { inner_type_name, auto_deref: true, .. }) =
                         self.index.find_effective_type_info(name)
                     {
                         Some((it.get_declaration_type(), inner_type_name.as_str()))
@@ -1013,7 +1013,7 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
     }
 
     fn get_parameter_type(&self, parameter: &VariableIndexEntry) -> String {
-        if let Some(DataTypeInformation::Pointer { inner_type_name, auto_deref: true, .. }) =
+        if let Some(DataTypeDefinition::Pointer { inner_type_name, auto_deref: true, .. }) =
             self.index.find_effective_type_info(parameter.get_type_name())
         {
             inner_type_name.into()
@@ -1123,7 +1123,7 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
                 .map(|var| var.get_type_information())
                 .unwrap_or_else(|| self.index.get_void_type().get_type_information());
 
-            if let DataTypeInformation::Pointer { auto_deref: true, inner_type_name, .. } = parameter {
+            if let DataTypeDefinition::Pointer { auto_deref: true, inner_type_name, .. } = parameter {
                 //this is VAR_IN_OUT assignemt, so don't load the value, assign the pointer
 
                 //expression may be empty -> generate a local variable for it
@@ -1388,7 +1388,7 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
     ) -> Result<PointerValue<'ink>, Diagnostic> {
         //Load the reference
         self.do_generate_element_pointer(qualifier.cloned(), reference).and_then(|lvalue| {
-            if let DataTypeInformation::Array { dimensions, .. } = self.get_type_hint_info_for(reference)? {
+            if let DataTypeDefinition::Array { dimensions, .. } = self.get_type_hint_info_for(reference)? {
                 //Make sure dimensions match statement list
                 let statements = access.get_as_list();
                 if statements.is_empty() || statements.len() != dimensions.len() {
@@ -1491,9 +1491,9 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
         &self,
         operator: &Operator,
         left: &AstStatement,
-        left_type: &DataTypeInformation,
+        left_type: &DataTypeDefinition,
         right: &AstStatement,
-        right_type: &DataTypeInformation,
+        right_type: &DataTypeDefinition,
         expression: &AstStatement,
     ) -> Result<BasicValueEnum<'ink>, Diagnostic> {
         let left_expr = self.generate_expression(left)?;
@@ -1803,7 +1803,7 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
             AstStatement::ExpressionList { .. } => {
                 let type_hint = self.get_type_hint_info_for(literal_statement)?;
                 match type_hint {
-                    DataTypeInformation::Array { .. } => {
+                    DataTypeDefinition::Array { .. } => {
                         self.generate_literal_array(literal_statement).map(ExpressionValue::RValue)
                     }
                     _ => self.generate_literal_struct(literal_statement, &literal_statement.get_location()),
@@ -1834,12 +1834,12 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
 
     fn generate_string_literal_for_type(
         &self,
-        expected_type: &DataTypeInformation,
+        expected_type: &DataTypeDefinition,
         value: &str,
         location: &SourceRange,
     ) -> Result<ExpressionValue<'ink>, Diagnostic> {
         match expected_type {
-            DataTypeInformation::String { encoding, size, .. } => {
+            DataTypeDefinition::String { encoding, size, .. } => {
                 let declared_length = size.as_int_value(self.index).map_err(|msg| {
                     Diagnostic::codegen_error(
                         format!("Unable to generate string-literal: {}", msg).as_str(),
@@ -1884,14 +1884,14 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
                     }
                 }
             }
-            DataTypeInformation::Pointer { inner_type_name, auto_deref: true, .. } => {
+            DataTypeDefinition::Pointer { inner_type_name, auto_deref: true, .. } => {
                 let inner_type = self.index.get_type_information_or_void(inner_type_name);
                 self.generate_string_literal_for_type(inner_type, value, location)
             }
-            DataTypeInformation::Integer { size: 8, .. } if expected_type.is_character() => {
+            DataTypeDefinition::Integer { size: 8, .. } if expected_type.is_character() => {
                 self.llvm.create_llvm_const_i8_char(value, location).map(ExpressionValue::RValue)
             }
-            DataTypeInformation::Integer { size: 16, .. } if expected_type.is_character() => {
+            DataTypeDefinition::Integer { size: 16, .. } if expected_type.is_character() => {
                 self.llvm.create_llvm_const_i16_char(value, location).map(ExpressionValue::RValue)
             }
             _ => Err(Diagnostic::cannot_generate_string_literal(expected_type.get_name(), location.clone())),
@@ -1905,7 +1905,7 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
     pub fn get_type_hint_info_for(
         &self,
         statement: &AstStatement,
-    ) -> Result<&DataTypeInformation, Diagnostic> {
+    ) -> Result<&DataTypeDefinition, Diagnostic> {
         self.get_type_hint_for(statement).map(DataType::get_type_information)
     }
 
@@ -1931,7 +1931,7 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
         assignments: &AstStatement,
         declaration_location: &SourceRange,
     ) -> Result<ExpressionValue<'ink>, Diagnostic> {
-        if let DataTypeInformation::Struct { name: struct_name, member_names, .. } =
+        if let DataTypeDefinition::Struct { name: struct_name, member_names, .. } =
             self.get_type_hint_info_for(assignments)?
         {
             let mut uninitialized_members: HashSet<&str> =
@@ -2035,11 +2035,11 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
     fn generate_literal_array_value(
         &self,
         elements: &AstStatement,
-        data_type: &DataTypeInformation,
+        data_type: &DataTypeDefinition,
         location: &SourceRange,
     ) -> Result<BasicValueEnum<'ink>, Diagnostic> {
         let (inner_type, expected_len) =
-            if let DataTypeInformation::Array { inner_type_name, dimensions, .. } = data_type {
+            if let DataTypeDefinition::Array { inner_type_name, dimensions, .. } = data_type {
                 let len: u32 = dimensions
                     .iter()
                     .map(|d| d.get_length(self.index))
@@ -2327,7 +2327,7 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
     pub fn generate_store(
         &self,
         left: inkwell::values::PointerValue,
-        left_type: &DataTypeInformation,
+        left_type: &DataTypeDefinition,
         right_statement: &AstStatement,
     ) -> Result<(), Diagnostic> {
         let right_type =
@@ -2384,10 +2384,10 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
     pub fn generate_string_store(
         &self,
         left: inkwell::values::PointerValue<'ink>,
-        left_type: &DataTypeInformation,
+        left_type: &DataTypeDefinition,
         left_location: SourceRange,
         right: inkwell::values::PointerValue<'ink>,
-        right_type: &DataTypeInformation,
+        right_type: &DataTypeDefinition,
         right_location: SourceRange,
     ) -> Result<PointerValue<'ink>, Diagnostic> {
         let target_size = self.get_string_size(left_type, left_location.clone())?;
@@ -2406,10 +2406,10 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
 
     fn get_string_size(
         &self,
-        datatype: &DataTypeInformation,
+        datatype: &DataTypeDefinition,
         location: SourceRange,
     ) -> Result<i64, Diagnostic> {
-        if let DataTypeInformation::String { size, .. } = datatype {
+        if let DataTypeDefinition::String { size, .. } = datatype {
             size.as_int_value(self.index).map_err(|err| Diagnostic::codegen_error(err.as_str(), location))
         } else {
             Err(Diagnostic::codegen_error(

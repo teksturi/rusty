@@ -6,7 +6,7 @@ use crate::lexer::IdProvider;
 use crate::resolver::const_evaluator::{evaluate_constants, UnresolvableConstant};
 use crate::resolver::AnnotationMap;
 use crate::test_utils::tests::{annotate_with_ids, codegen, index, index_with_ids};
-use crate::typesystem::DataTypeInformation;
+use crate::typesystem::DataTypeDefinition;
 
 const EMPTY: Vec<UnresolvableConstant> = vec![];
 
@@ -1056,7 +1056,7 @@ fn nested_array_literals_type_resolving() {
 
     //check the initializer's array-element's types
     if let AstStatement::LiteralArray { elements: Some(e), .. } = initializer {
-        if let Some(DataTypeInformation::Array { inner_type_name, .. }) =
+        if let Some(DataTypeDefinition::Array { inner_type_name, .. }) =
             index.find_effective_type_by_name(a.get_type_name()).map(|t| t.get_type_information())
         {
             //check the type of the expression-list has the same type as the variable itself
@@ -1118,7 +1118,7 @@ fn nested_array_literals_multiplied_statement_type_resolving() {
     // [[2(2)],[2(3)]]
     if let AstStatement::LiteralArray { elements: Some(outer_expresion_list), .. } = initializer {
         // outer_expression_list = [2(2)],[2(3)]
-        if let Some(DataTypeInformation::Array { inner_type_name: array_of_byte, .. }) =
+        if let Some(DataTypeDefinition::Array { inner_type_name: array_of_byte, .. }) =
             index.find_effective_type_by_name(a.get_type_name()).map(|t| t.get_type_information())
         {
             //check the type of the expression-list has the same type as the variable itself

@@ -4,7 +4,7 @@ use crate::{
         VariableBlockType,
     },
     index::{const_expressions::ConstExpression, Index},
-    typesystem::{DataTypeInformation, StructSource},
+    typesystem::{DataTypeDefinition, StructSource},
     Diagnostic,
 };
 
@@ -99,21 +99,18 @@ impl VariableValidator {
 
 /// returns whether this data_type is a function block, a class or an array/pointer of/to these
 fn data_type_is_fb_or_class_instance(type_name: &str, index: &Index) -> bool {
-    let data_type = index.find_effective_type_by_name(type_name).map_or_else(
-        || index.get_void_type().get_type_information(),
-        crate::typesystem::DataType::get_type_information,
-    );
+    let data_type = index.find_effective_type_by_name(type_name).unwrap_or_else(|| index.get_void_type());
 
-    if let DataTypeInformation::Struct {
+    if let DataTypeDefinition::Struct {
         source: StructSource::Pou(PouType::FunctionBlock) | StructSource::Pou(PouType::Class),
         ..
-    } = data_type
+    } = data_type.get_type_information()
     {
         return true;
     }
 
-    match data_type {
-        DataTypeInformation::Struct { member_names, name, .. } =>
+    match data_type.get_type_information() {
+        DataTypeDefinition::Struct { member_names, container_name: name, .. } =>
         //see if any member is fb or class intance
         {
             member_names.iter().any(|member_name| {
@@ -122,13 +119,13 @@ fn data_type_is_fb_or_class_instance(type_name: &str, index: &Index) -> bool {
                     .map_or(false, |v| data_type_is_fb_or_class_instance(v.get_type_name(), index))
             })
         }
-        DataTypeInformation::Array { inner_type_name, .. } => {
+        DataTypeDefinition::Array { inner_type_name, .. } => {
             data_type_is_fb_or_class_instance(inner_type_name.as_str(), index)
         }
-        DataTypeInformation::Pointer { inner_type_name, .. } => {
+        DataTypeDefinition::Pointer { inner_type_name, .. } => {
             data_type_is_fb_or_class_instance(inner_type_name.as_str(), index)
         }
-        DataTypeInformation::Alias { referenced_type, .. } => {
+        DataTypeDefinition::Alias { referenced_type, .. } => {
             data_type_is_fb_or_class_instance(referenced_type.as_str(), index)
         }
         _ => false,

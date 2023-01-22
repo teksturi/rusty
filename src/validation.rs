@@ -8,7 +8,7 @@ use crate::{
     codegen::generators::expression_generator::get_implicit_call_parameter,
     index::{ArgumentType, Index, PouIndexEntry, VariableIndexEntry, VariableType},
     resolver::{const_evaluator, AnnotationMap, AnnotationMapImpl, StatementAnnotation},
-    typesystem::{self, DataTypeInformation},
+    typesystem::{self, DataTypeDefinition},
     Diagnostic,
 };
 
@@ -420,12 +420,12 @@ impl Validator {
         };
         let right_type_info = index.find_intrinsic_type(right_type.get_type_information());
         // stmt_validator `validate_type_nature()` should report any error see `generic_validation_tests` ignore generics here and safe work
-        if !matches!(left_type_info, DataTypeInformation::Generic { .. })
+        if !matches!(left_type_info, DataTypeDefinition::Generic { .. })
             & !typesystem::is_same_type_class(left_type_info, right_type_info, index)
         {
             self.stmt_validator.diagnostics.push(Diagnostic::invalid_assignment(
-                right_type_info.get_name(),
-                left_type_info.get_name(),
+                right_type.get_name(),
+                left_type.get_name(),
                 location,
             ))
         }

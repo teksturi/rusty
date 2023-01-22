@@ -15,7 +15,7 @@ use crate::index::{Index, VariableIndexEntry, VariableType};
 use crate::resolver::AstAnnotations;
 use crate::typesystem::{Dimension, StringEncoding, StructSource};
 use crate::Diagnostic;
-use crate::{ast::AstStatement, typesystem::DataTypeInformation};
+use crate::{ast::AstStatement, typesystem::DataTypeDefinition};
 use crate::{
     codegen::{
         debug::DebugBuilderEnum,
@@ -77,13 +77,13 @@ pub fn generate_data_types<'ink>(
     // first create all STUBs for struct types (empty structs)
     // and associate them in the llvm index
     for (name, user_type) in &types {
-        if let DataTypeInformation::Struct { name: struct_name, .. } = user_type.get_type_information() {
+        if let DataTypeDefinition::Struct { name: struct_name, .. } = user_type.get_type_information() {
             generator.types_index.associate_type(name, llvm.create_struct_stub(struct_name).into())?;
         }
     }
     // pou_types will always be struct
     for (name, user_type) in &pou_types {
-        if let DataTypeInformation::Struct { name: struct_name, .. } = user_type.get_type_information() {
+        if let DataTypeDefinition::Struct { name: struct_name, .. } = user_type.get_type_information() {
             generator.types_index.associate_pou_type(name, llvm.create_struct_stub(struct_name).into())?;
         }
     }
@@ -168,7 +168,7 @@ impl<'ink, 'b> DataTypeGenerator<'ink, 'b> {
     /// generates the members of an opaque struct and associates its initial values
     fn expand_opaque_types(&mut self, data_type: &DataType) -> Result<(), Diagnostic> {
         let information = data_type.get_type_information();
-        if let DataTypeInformation::Struct { source, .. } = information {
+        if let DataTypeDefinition::Struct { source, .. } = information {
             let members = self
                 .index
                 .get_container_members(data_type.get_name())
@@ -197,24 +197,24 @@ impl<'ink, 'b> DataTypeGenerator<'ink, 'b> {
         self.debug.register_debug_type(name, data_type, self.index)?;
         let information = data_type.get_type_information();
         match information {
-            DataTypeInformation::Struct { source, .. } => match source {
+            DataTypeDefinition::Struct { source, .. } => match source {
                 StructSource::Pou(..) => self.types_index.get_associated_pou_type(data_type.get_name()),
                 StructSource::OriginalDeclaration => {
                     self.types_index.get_associated_type(data_type.get_name())
                 }
             },
-            DataTypeInformation::Array { inner_type_name, dimensions, .. } => self
+            DataTypeDefinition::Array { inner_type_name, dimensions, .. } => self
                 .index
                 .get_effective_type_by_name(inner_type_name)
                 .and_then(|inner_type| self.create_type(inner_type_name, inner_type))
                 .and_then(|inner_type| self.create_nested_array_type(inner_type, dimensions))
                 .map(|it| it.as_basic_type_enum()),
-            DataTypeInformation::Integer { size, .. } => {
+            DataTypeDefinition::Integer { size, .. } => {
                 get_llvm_int_type(self.llvm.context, *size, name).map(|it| it.into())
             }
-            DataTypeInformation::Enum { name, referenced_type, .. } => {
+            DataTypeDefinition::Enum { name, referenced_type, .. } => {
                 let effective_type = self.index.get_effective_type_or_void_by_name(referenced_type);
-                if let DataTypeInformation::Integer { .. } = effective_type.get_type_information() {
+                if let DataTypeDefinition::Integer { .. } = effective_type.get_type_information() {
                     self.create_type(name, effective_type)
                 } else {
                     Err(Diagnostic::invalid_type_nature(
@@ -224,10 +224,10 @@ impl<'ink, 'b> DataTypeGenerator<'ink, 'b> {
                     ))
                 }
             }
-            DataTypeInformation::Float { size, .. } => {
+            DataTypeDefinition::Float { size, .. } => {
                 get_llvm_float_type(self.llvm.context, *size, name).map(|it| it.into())
             }
-            DataTypeInformation::String { size, encoding } => {
+            DataTypeDefinition::String { size, encoding } => {
                 let base_type = if *encoding == StringEncoding::Utf8 {
                     self.llvm.context.i8_type()
                 } else {
@@ -240,17 +240,17 @@ impl<'ink, 'b> DataTypeGenerator<'ink, 'b> {
                     as u32;
                 Ok(base_type.array_type(string_size).into())
             }
-            DataTypeInformation::SubRange { referenced_type, .. }
-            | DataTypeInformation::Alias { referenced_type, .. } => self
+            DataTypeDefinition::SubRange { referenced_type, .. }
+            | DataTypeDefinition::Alias { referenced_type, .. } => self
                 .index
                 .get_effective_type_by_name(referenced_type)
                 .and_then(|data_type| self.create_type(name, data_type)),
-            DataTypeInformation::Void => get_llvm_int_type(self.llvm.context, 32, "Void").map(Into::into),
-            DataTypeInformation::Pointer { inner_type_name, .. } => {
+            DataTypeDefinition::Void => get_llvm_int_type(self.llvm.context, 32, "Void").map(Into::into),
+            DataTypeDefinition::Pointer { inner_type_name, .. } => {
                 let inner_type = self.create_type(inner_type_name, self.index.get_type(inner_type_name)?)?;
                 Ok(inner_type.ptr_type(AddressSpace::Generic).into())
             }
-            DataTypeInformation::Generic { .. } => {
+            DataTypeDefinition::Generic { .. } => {
                 unreachable!("Generic types should not be generated")
             }
         }
@@ -262,7 +262,7 @@ impl<'ink, 'b> DataTypeGenerator<'ink, 'b> {
     ) -> Result<Option<BasicValueEnum<'ink>>, Diagnostic> {
         let information = data_type.get_type_information();
         match information {
-            DataTypeInformation::Struct { source, .. } => {
+            DataTypeDefinition::Struct { source, .. } => {
                 let members = self.index.get_container_members(data_type.get_name());
                 let member_names_and_initializers = members
                     .iter()
@@ -295,20 +295,20 @@ impl<'ink, 'b> DataTypeGenerator<'ink, 'b> {
 
                 Ok(Some(struct_type.const_named_struct(&member_values).as_basic_value_enum()))
             }
-            DataTypeInformation::Array { .. } => self.generate_array_initializer(
+            DataTypeDefinition::Array { .. } => self.generate_array_initializer(
                 data_type,
                 |stmt| matches!(stmt, AstStatement::LiteralArray { .. }),
                 "LiteralArray",
             ),
-            DataTypeInformation::String { .. } => self.generate_array_initializer(
+            DataTypeDefinition::String { .. } => self.generate_array_initializer(
                 data_type,
                 |stmt| matches!(stmt, AstStatement::LiteralString { .. }),
                 "LiteralString",
             ),
-            DataTypeInformation::SubRange { referenced_type, .. } => {
+            DataTypeDefinition::SubRange { referenced_type, .. } => {
                 self.generate_initial_value_for_type(data_type, referenced_type)
             }
-            DataTypeInformation::Alias { referenced_type, .. } => {
+            DataTypeDefinition::Alias { referenced_type, .. } => {
                 self.generate_initial_value_for_type(data_type, referenced_type)
             }
             //all other types (scalars, pointer and void)

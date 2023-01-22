@@ -21,7 +21,7 @@ use crate::{
         generics::{generic_name_resolver, no_generic_name_resolver, GenericType},
         AnnotationMap, TypeAnnotator, VisitorContext,
     },
-    typesystem::{get_bigger_type, DataTypeInformation, DINT_SIZE, DINT_TYPE, REAL_TYPE, UDINT_TYPE},
+    typesystem::{get_bigger_type, DataTypeDefinition, DINT_SIZE, DINT_TYPE, REAL_TYPE, UDINT_TYPE},
 };
 
 // Defines a set of functions that are always included in a compiled application
@@ -67,7 +67,6 @@ lazy_static! {
                         if let [input] = flatten_expression_list(params)[..] {
                             let input_type = annotator.annotation_map
                                 .get_type_or_void(input, annotator.index)
-                                .get_type_information()
                                 .get_name()
                                 .to_owned();
 
@@ -128,7 +127,7 @@ lazy_static! {
                         //Create a temp var
                         let result_type = params.get(0)
                             .ok_or_else(|| Diagnostic::codegen_error("Invalid signature for MUX", location))
-                            .and_then(|it| generator.get_type_hint_info_for(it))
+                            .and_then(|it| generator.get_type_hint_for(it))
                             .and_then(|it| generator.llvm_index.get_associated_type(it.get_name()))?;
                         let result_var = generator.llvm.create_local_variable("", &result_type);
                         let k = generator.generate_expression(k)?;
@@ -229,8 +228,8 @@ lazy_static! {
                         if let (Some(element_type), Some(exponent_type)) = (element_type, exponent_type) {
                             let (element_type, exponant_type)  = match (element_type.get_type_information(), exponent_type.get_type_information()) {
                                 //If both params are int types, convert to a common type and call an int power function
-                                (DataTypeInformation::Integer { .. }, DataTypeInformation::Integer {signed : false, size, ..})
-                                | (DataTypeInformation::Integer { .. }, DataTypeInformation::Integer {signed : true, size, ..}) if is_exponent_positive_literal => {
+                                (DataTypeDefinition::Integer { .. }, DataTypeDefinition::Integer {signed : false, size, ..})
+                                | (DataTypeDefinition::Integer { .. }, DataTypeDefinition::Integer {signed : true, size, ..}) if is_exponent_positive_literal => {
                                     //Convert both to minimum dint
                                     let element_type = get_bigger_type(element_type, dint_type, annotator.index);
                                     let exponant_type = if *size <= DINT_SIZE {
@@ -241,7 +240,7 @@ lazy_static! {
                                     (element_type.get_name(), exponant_type.get_name())
                                 },
                                 //If left is real, then if right is int call powi
-                                (_, DataTypeInformation::Integer {size, ..}) => {
+                                (_, DataTypeDefinition::Integer {size, ..}) => {
                                     //Convert the exponent to minimum DINT
                                     let target_type = get_bigger_type(element_type, real_type, annotator.index);
 

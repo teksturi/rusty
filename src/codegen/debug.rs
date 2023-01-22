@@ -17,7 +17,7 @@ use crate::{
     datalayout::{Bytes, DataLayout, MemoryLocation},
     diagnostics::Diagnostic,
     index::{symbol::SymbolLocation, ImplementationType, Index, PouIndexEntry, VariableIndexEntry},
-    typesystem::{DataType, DataTypeInformation, Dimension, StringEncoding, CHAR_TYPE, WCHAR_TYPE},
+    typesystem::{DataType, DataTypeDefinition, Dimension, StringEncoding, CHAR_TYPE, WCHAR_TYPE},
     DebugLevel, OptimizationLevel,
 };
 
@@ -632,16 +632,16 @@ impl<'ink> Debug<'ink> for DebugBuilder<'ink> {
             let alignment = type_info.get_alignment(index);
             let location = &datatype.location;
             match type_info {
-                DataTypeInformation::Struct { member_names, .. } => {
+                DataTypeDefinition::Struct { member_names, .. } => {
                     self.create_struct_type(name, member_names.as_slice(), index, location)
                 }
-                DataTypeInformation::Array { name, inner_type_name, dimensions, .. } => {
+                DataTypeDefinition::Array { name, inner_type_name, dimensions, .. } => {
                     self.create_array_type(name, inner_type_name, dimensions, size, alignment, index)
                 }
-                DataTypeInformation::Pointer { name, inner_type_name, .. } => {
+                DataTypeDefinition::Pointer { name, inner_type_name, .. } => {
                     self.create_pointer_type(name, inner_type_name, size, alignment, index)
                 }
-                DataTypeInformation::Integer { signed, size, .. } => {
+                DataTypeDefinition::Integer { signed, size, .. } => {
                     let encoding = if type_info.is_bool() {
                         DebugEncoding::DW_ATE_boolean
                     } else if type_info.is_character() {
@@ -654,17 +654,17 @@ impl<'ink> Debug<'ink> for DebugBuilder<'ink> {
                     };
                     self.create_basic_type(name, *size as u64, encoding, location)
                 }
-                DataTypeInformation::Float { size, .. } => {
+                DataTypeDefinition::Float { size, .. } => {
                     self.create_basic_type(name, *size as u64, DebugEncoding::DW_ATE_float, location)
                 }
-                DataTypeInformation::String { size: string_size, encoding, .. } => {
+                DataTypeDefinition::String { size: string_size, encoding, .. } => {
                     let length = string_size
                         .as_int_value(index)
                         .map_err(|err| Diagnostic::codegen_error(&err, SourceRange::undefined()))?;
                     self.create_string_type(name, length, *encoding, size, alignment, index)
                 }
-                DataTypeInformation::Alias { name, referenced_type }
-                | DataTypeInformation::Enum { name, referenced_type, .. } => {
+                DataTypeDefinition::Alias { name, referenced_type }
+                | DataTypeDefinition::Enum { name, referenced_type, .. } => {
                     self.create_typedef_type(name, referenced_type, index, location)
                 }
                 // Other types are just derived basic types

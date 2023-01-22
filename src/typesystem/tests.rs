@@ -15,8 +15,8 @@ use super::{iec61131_types, TypeSize};
 macro_rules! assert_signed_type {
     ($expected:expr, $actual:expr, $index:expr) => {
         assert_eq!(
-            $index.find_effective_type_info($expected),
-            get_signed_type($index.find_effective_type_info($actual).unwrap(), &$index)
+            $index.find_effective_type_by_name($expected),
+            get_signed_type($index.find_effective_type_by_name($actual).unwrap(), &$index)
         );
     };
 }
@@ -34,13 +34,8 @@ pub fn signed_types_tests() {
     assert_signed_type!(LINT_TYPE, ULINT_TYPE, index);
     assert_signed_type!(LINT_TYPE, LWORD_TYPE, index);
 
-    assert_eq!(
-        Some(index.find_effective_type_by_name(STRING_TYPE).as_ref().unwrap().get_type_information()),
-        get_signed_type(
-            index.find_effective_type_by_name(STRING_TYPE).as_ref().unwrap().get_type_information(),
-            &index
-        )
-    );
+    let string_type = index.find_effective_type_by_name(STRING_TYPE).unwrap();
+    assert_eq!(Some(string_type), get_signed_type(string_type, &index));
 }
 
 #[test]
@@ -155,7 +150,7 @@ fn get_bigger_size_string_test() {
     let string_1024 = typesystem::DataType {
         name: "STRING_1024".into(),
         initial_value: None,
-        information: typesystem::DataTypeInformation::String {
+        information: typesystem::DataTypeDefinition::String {
             size: TypeSize::LiteralInteger(1024),
             encoding: typesystem::StringEncoding::Utf8,
         },
@@ -163,17 +158,19 @@ fn get_bigger_size_string_test() {
         nature: TypeNature::String,
         location: SymbolLocation::internal(),
         alias_of: None,
+        sub_range: None,
     };
     let string_30 = typesystem::DataType {
         name: "STRING_30".into(),
         initial_value: None,
-        information: typesystem::DataTypeInformation::String {
+        information: typesystem::DataTypeDefinition::String {
             size: TypeSize::LiteralInteger(30),
             encoding: typesystem::StringEncoding::Utf8,
         },
         nature: TypeNature::String,
         location: SymbolLocation::internal(),
         alias_of: None,
+        sub_range: None,
     };
     //The string with the bigger length is the bigger string
     assert_eq!(&string_1024, typesystem::get_bigger_type(&string_1024, &string_30, &index));
@@ -190,8 +187,7 @@ fn get_bigger_size_array_test_returns_first() {
     let array_1024 = typesystem::DataType {
         name: "ARRAY_1024".into(),
         initial_value: None,
-        information: typesystem::DataTypeInformation::Array {
-            name: "ARRAY_1024".into(),
+        information: typesystem::DataTypeDefinition::Array {
             inner_type_name: "INT".into(),
             dimensions: vec![Dimension {
                 start_offset: TypeSize::LiteralInteger(0),
@@ -201,12 +197,12 @@ fn get_bigger_size_array_test_returns_first() {
         nature: TypeNature::Any,
         location: SymbolLocation::internal(),
         alias_of: None,
+        sub_range: None,
     };
     let array_30 = typesystem::DataType {
         name: "ARRAY_30".into(),
         initial_value: None,
-        information: typesystem::DataTypeInformation::Array {
-            name: "ARRAY_30".into(),
+        information: typesystem::DataTypeDefinition::Array {
             inner_type_name: "INT".into(),
             dimensions: vec![Dimension {
                 start_offset: TypeSize::LiteralInteger(1),
@@ -216,6 +212,7 @@ fn get_bigger_size_array_test_returns_first() {
         nature: TypeNature::Any,
         location: SymbolLocation::internal(),
         alias_of: None,
+        sub_range: None,
     };
     //The array with the most elements is bigger
     assert_eq!(&array_1024, typesystem::get_bigger_type(&array_1024, &array_30, &index));
@@ -232,31 +229,32 @@ fn get_bigger_size_mixed_test_no_() {
     let string_1024 = typesystem::DataType {
         name: "STRING_1024".into(),
         initial_value: None,
-        information: typesystem::DataTypeInformation::String {
+        information: typesystem::DataTypeDefinition::String {
             size: TypeSize::LiteralInteger(1024),
             encoding: typesystem::StringEncoding::Utf8,
         },
         nature: TypeNature::String,
         location: SymbolLocation::internal(),
         alias_of: None,
+        sub_range: None,
     };
     let wstring_1024 = typesystem::DataType {
         name: "WSTRING_1024".into(),
         initial_value: None,
-        information: typesystem::DataTypeInformation::String {
+        information: typesystem::DataTypeDefinition::String {
             size: TypeSize::LiteralInteger(1024),
             encoding: typesystem::StringEncoding::Utf16,
         },
         nature: TypeNature::String,
         location: SymbolLocation::internal(),
         alias_of: None,
+        sub_range: None,
     };
     //Array of string
     let array_string_30 = typesystem::DataType {
         name: "ARRAY_STRING_30".into(),
         initial_value: None,
-        information: typesystem::DataTypeInformation::Array {
-            name: "ARRAY_STRING_30".into(),
+        information: typesystem::DataTypeDefinition::Array {
             inner_type_name: "STRING".into(),
             dimensions: vec![Dimension {
                 start_offset: TypeSize::LiteralInteger(1),
@@ -266,13 +264,13 @@ fn get_bigger_size_mixed_test_no_() {
         nature: TypeNature::Any,
         location: SymbolLocation::internal(),
         alias_of: None,
+        sub_range: None,
     };
     //Array of int
     let array_30 = typesystem::DataType {
         name: "ARRAY_30".into(),
         initial_value: None,
-        information: typesystem::DataTypeInformation::Array {
-            name: "ARRAY_30".into(),
+        information: typesystem::DataTypeDefinition::Array {
             inner_type_name: "INT".into(),
             dimensions: vec![Dimension {
                 start_offset: TypeSize::LiteralInteger(1),
@@ -282,13 +280,13 @@ fn get_bigger_size_mixed_test_no_() {
         nature: TypeNature::Any,
         location: SymbolLocation::internal(),
         alias_of: None,
+        sub_range: None,
     };
     //2-dim array of int
     let array_30_30 = typesystem::DataType {
         name: "ARRAY_30_30".into(),
         initial_value: None,
-        information: typesystem::DataTypeInformation::Array {
-            name: "ARRAY_30_30".into(),
+        information: typesystem::DataTypeDefinition::Array {
             inner_type_name: "INT".into(),
             dimensions: vec![
                 Dimension {
@@ -304,6 +302,7 @@ fn get_bigger_size_mixed_test_no_() {
         nature: TypeNature::Any,
         location: SymbolLocation::internal(),
         alias_of: None,
+        sub_range: None,
     };
 
     //Given two incompatible types
@@ -333,35 +332,35 @@ fn any_signed_type_test() {
     let dint = index.get_type_or_panic(DINT_TYPE);
     let lint = index.get_type_or_panic(LINT_TYPE);
 
-    assert!(sint.has_nature(TypeNature::Signed, &index));
-    assert!(int.has_nature(TypeNature::Signed, &index));
-    assert!(dint.has_nature(TypeNature::Signed, &index));
-    assert!(lint.has_nature(TypeNature::Signed, &index));
+    assert!(sint.has_nature(TypeNature::Signed));
+    assert!(int.has_nature(TypeNature::Signed));
+    assert!(dint.has_nature(TypeNature::Signed));
+    assert!(lint.has_nature(TypeNature::Signed));
 
-    assert!(sint.has_nature(TypeNature::Int, &index));
-    assert!(int.has_nature(TypeNature::Int, &index));
-    assert!(dint.has_nature(TypeNature::Int, &index));
-    assert!(lint.has_nature(TypeNature::Int, &index));
+    assert!(sint.has_nature(TypeNature::Int));
+    assert!(int.has_nature(TypeNature::Int));
+    assert!(dint.has_nature(TypeNature::Int));
+    assert!(lint.has_nature(TypeNature::Int));
 
-    assert!(sint.has_nature(TypeNature::Num, &index));
-    assert!(int.has_nature(TypeNature::Num, &index));
-    assert!(dint.has_nature(TypeNature::Num, &index));
-    assert!(lint.has_nature(TypeNature::Num, &index));
+    assert!(sint.has_nature(TypeNature::Num));
+    assert!(int.has_nature(TypeNature::Num));
+    assert!(dint.has_nature(TypeNature::Num));
+    assert!(lint.has_nature(TypeNature::Num));
 
-    assert!(sint.has_nature(TypeNature::Magnitude, &index));
-    assert!(int.has_nature(TypeNature::Magnitude, &index));
-    assert!(dint.has_nature(TypeNature::Magnitude, &index));
-    assert!(lint.has_nature(TypeNature::Magnitude, &index));
+    assert!(sint.has_nature(TypeNature::Magnitude));
+    assert!(int.has_nature(TypeNature::Magnitude));
+    assert!(dint.has_nature(TypeNature::Magnitude));
+    assert!(lint.has_nature(TypeNature::Magnitude));
 
-    assert!(sint.has_nature(TypeNature::Elementary, &index));
-    assert!(int.has_nature(TypeNature::Elementary, &index));
-    assert!(dint.has_nature(TypeNature::Elementary, &index));
-    assert!(lint.has_nature(TypeNature::Elementary, &index));
+    assert!(sint.has_nature(TypeNature::Elementary));
+    assert!(int.has_nature(TypeNature::Elementary));
+    assert!(dint.has_nature(TypeNature::Elementary));
+    assert!(lint.has_nature(TypeNature::Elementary));
 
-    assert!(sint.has_nature(TypeNature::Any, &index));
-    assert!(int.has_nature(TypeNature::Any, &index));
-    assert!(dint.has_nature(TypeNature::Any, &index));
-    assert!(lint.has_nature(TypeNature::Any, &index));
+    assert!(sint.has_nature(TypeNature::Any));
+    assert!(int.has_nature(TypeNature::Any));
+    assert!(dint.has_nature(TypeNature::Any));
+    assert!(lint.has_nature(TypeNature::Any));
 }
 
 #[test]
@@ -372,35 +371,35 @@ fn any_unsigned_type_test() {
     let udint = index.get_type_or_panic(UDINT_TYPE);
     let ulint = index.get_type_or_panic(ULINT_TYPE);
 
-    assert!(usint.has_nature(TypeNature::Unsigned, &index));
-    assert!(uint.has_nature(TypeNature::Unsigned, &index));
-    assert!(udint.has_nature(TypeNature::Unsigned, &index));
-    assert!(ulint.has_nature(TypeNature::Unsigned, &index));
+    assert!(usint.has_nature(TypeNature::Unsigned));
+    assert!(uint.has_nature(TypeNature::Unsigned));
+    assert!(udint.has_nature(TypeNature::Unsigned));
+    assert!(ulint.has_nature(TypeNature::Unsigned));
 
-    assert!(usint.has_nature(TypeNature::Int, &index));
-    assert!(uint.has_nature(TypeNature::Int, &index));
-    assert!(udint.has_nature(TypeNature::Int, &index));
-    assert!(ulint.has_nature(TypeNature::Int, &index));
+    assert!(usint.has_nature(TypeNature::Int));
+    assert!(uint.has_nature(TypeNature::Int));
+    assert!(udint.has_nature(TypeNature::Int));
+    assert!(ulint.has_nature(TypeNature::Int));
 
-    assert!(usint.has_nature(TypeNature::Num, &index));
-    assert!(uint.has_nature(TypeNature::Num, &index));
-    assert!(udint.has_nature(TypeNature::Num, &index));
-    assert!(ulint.has_nature(TypeNature::Num, &index));
+    assert!(usint.has_nature(TypeNature::Num));
+    assert!(uint.has_nature(TypeNature::Num));
+    assert!(udint.has_nature(TypeNature::Num));
+    assert!(ulint.has_nature(TypeNature::Num));
 
-    assert!(usint.has_nature(TypeNature::Magnitude, &index));
-    assert!(uint.has_nature(TypeNature::Magnitude, &index));
-    assert!(udint.has_nature(TypeNature::Magnitude, &index));
-    assert!(ulint.has_nature(TypeNature::Magnitude, &index));
+    assert!(usint.has_nature(TypeNature::Magnitude));
+    assert!(uint.has_nature(TypeNature::Magnitude));
+    assert!(udint.has_nature(TypeNature::Magnitude));
+    assert!(ulint.has_nature(TypeNature::Magnitude));
 
-    assert!(usint.has_nature(TypeNature::Elementary, &index));
-    assert!(uint.has_nature(TypeNature::Elementary, &index));
-    assert!(udint.has_nature(TypeNature::Elementary, &index));
-    assert!(ulint.has_nature(TypeNature::Elementary, &index));
+    assert!(usint.has_nature(TypeNature::Elementary));
+    assert!(uint.has_nature(TypeNature::Elementary));
+    assert!(udint.has_nature(TypeNature::Elementary));
+    assert!(ulint.has_nature(TypeNature::Elementary));
 
-    assert!(usint.has_nature(TypeNature::Any, &index));
-    assert!(uint.has_nature(TypeNature::Any, &index));
-    assert!(udint.has_nature(TypeNature::Any, &index));
-    assert!(ulint.has_nature(TypeNature::Any, &index));
+    assert!(usint.has_nature(TypeNature::Any));
+    assert!(uint.has_nature(TypeNature::Any));
+    assert!(udint.has_nature(TypeNature::Any));
+    assert!(ulint.has_nature(TypeNature::Any));
 }
 
 #[test]
@@ -409,20 +408,20 @@ fn any_real_type_test() {
     let real = index.get_type_or_panic(REAL_TYPE);
     let lreal = index.get_type_or_panic(LREAL_TYPE);
 
-    assert!(real.has_nature(TypeNature::Real, &index));
-    assert!(lreal.has_nature(TypeNature::Real, &index));
+    assert!(real.has_nature(TypeNature::Real));
+    assert!(lreal.has_nature(TypeNature::Real));
 
-    assert!(real.has_nature(TypeNature::Num, &index));
-    assert!(lreal.has_nature(TypeNature::Num, &index));
+    assert!(real.has_nature(TypeNature::Num));
+    assert!(lreal.has_nature(TypeNature::Num));
 
-    assert!(real.has_nature(TypeNature::Magnitude, &index));
-    assert!(lreal.has_nature(TypeNature::Magnitude, &index));
+    assert!(real.has_nature(TypeNature::Magnitude));
+    assert!(lreal.has_nature(TypeNature::Magnitude));
 
-    assert!(real.has_nature(TypeNature::Elementary, &index));
-    assert!(lreal.has_nature(TypeNature::Elementary, &index));
+    assert!(real.has_nature(TypeNature::Elementary));
+    assert!(lreal.has_nature(TypeNature::Elementary));
 
-    assert!(real.has_nature(TypeNature::Any, &index));
-    assert!(lreal.has_nature(TypeNature::Any, &index));
+    assert!(real.has_nature(TypeNature::Any));
+    assert!(lreal.has_nature(TypeNature::Any));
 }
 
 #[test]
@@ -431,13 +430,13 @@ fn any_duration_type_test() {
     let time = index.get_type_or_panic(TIME_TYPE);
     // let ltime = index.get_type_or_panic(LTIME_TYTE);
 
-    assert!(time.has_nature(TypeNature::Duration, &index));
+    assert!(time.has_nature(TypeNature::Duration));
 
-    assert!(time.has_nature(TypeNature::Magnitude, &index));
+    assert!(time.has_nature(TypeNature::Magnitude));
 
-    assert!(time.has_nature(TypeNature::Elementary, &index));
+    assert!(time.has_nature(TypeNature::Elementary));
 
-    assert!(time.has_nature(TypeNature::Any, &index));
+    assert!(time.has_nature(TypeNature::Any));
 }
 
 #[test]
@@ -449,23 +448,23 @@ fn any_bit_type_test() {
     let dword = index.get_type_or_panic(DWORD_TYPE);
     let lword = index.get_type_or_panic(LWORD_TYPE);
 
-    assert!(bool_type.has_nature(TypeNature::Bit, &index));
-    assert!(byte.has_nature(TypeNature::Bit, &index));
-    assert!(word.has_nature(TypeNature::Bit, &index));
-    assert!(dword.has_nature(TypeNature::Bit, &index));
-    assert!(lword.has_nature(TypeNature::Bit, &index));
+    assert!(bool_type.has_nature(TypeNature::Bit));
+    assert!(byte.has_nature(TypeNature::Bit));
+    assert!(word.has_nature(TypeNature::Bit));
+    assert!(dword.has_nature(TypeNature::Bit));
+    assert!(lword.has_nature(TypeNature::Bit));
 
-    assert!(bool_type.has_nature(TypeNature::Elementary, &index));
-    assert!(byte.has_nature(TypeNature::Elementary, &index));
-    assert!(word.has_nature(TypeNature::Elementary, &index));
-    assert!(dword.has_nature(TypeNature::Elementary, &index));
-    assert!(lword.has_nature(TypeNature::Elementary, &index));
+    assert!(bool_type.has_nature(TypeNature::Elementary));
+    assert!(byte.has_nature(TypeNature::Elementary));
+    assert!(word.has_nature(TypeNature::Elementary));
+    assert!(dword.has_nature(TypeNature::Elementary));
+    assert!(lword.has_nature(TypeNature::Elementary));
 
-    assert!(bool_type.has_nature(TypeNature::Any, &index));
-    assert!(byte.has_nature(TypeNature::Any, &index));
-    assert!(word.has_nature(TypeNature::Any, &index));
-    assert!(dword.has_nature(TypeNature::Any, &index));
-    assert!(lword.has_nature(TypeNature::Any, &index));
+    assert!(bool_type.has_nature(TypeNature::Any));
+    assert!(byte.has_nature(TypeNature::Any));
+    assert!(word.has_nature(TypeNature::Any));
+    assert!(dword.has_nature(TypeNature::Any));
+    assert!(lword.has_nature(TypeNature::Any));
 }
 
 #[test]
@@ -474,17 +473,17 @@ fn any_string_type_test() {
     let string = index.get_type_or_panic(STRING_TYPE);
     let wstring = index.get_type_or_panic(WSTRING_TYPE);
 
-    assert!(string.has_nature(TypeNature::Chars, &index));
-    assert!(wstring.has_nature(TypeNature::Chars, &index));
+    assert!(string.has_nature(TypeNature::Chars));
+    assert!(wstring.has_nature(TypeNature::Chars));
 
-    assert!(string.has_nature(TypeNature::String, &index));
-    assert!(wstring.has_nature(TypeNature::String, &index));
+    assert!(string.has_nature(TypeNature::String));
+    assert!(wstring.has_nature(TypeNature::String));
 
-    assert!(string.has_nature(TypeNature::Elementary, &index));
-    assert!(wstring.has_nature(TypeNature::Elementary, &index));
+    assert!(string.has_nature(TypeNature::Elementary));
+    assert!(wstring.has_nature(TypeNature::Elementary));
 
-    assert!(string.has_nature(TypeNature::Any, &index));
-    assert!(wstring.has_nature(TypeNature::Any, &index));
+    assert!(string.has_nature(TypeNature::Any));
+    assert!(wstring.has_nature(TypeNature::Any));
 }
 
 #[test]
@@ -493,17 +492,17 @@ fn any_char_type_test() {
     let char = index.get_type_or_panic(CHAR_TYPE);
     let wchar = index.get_type_or_panic(WCHAR_TYPE);
 
-    assert!(char.has_nature(TypeNature::Chars, &index));
-    assert!(wchar.has_nature(TypeNature::Chars, &index));
+    assert!(char.has_nature(TypeNature::Chars));
+    assert!(wchar.has_nature(TypeNature::Chars));
 
-    assert!(char.has_nature(TypeNature::Char, &index));
-    assert!(wchar.has_nature(TypeNature::Char, &index));
+    assert!(char.has_nature(TypeNature::Char));
+    assert!(wchar.has_nature(TypeNature::Char));
 
-    assert!(char.has_nature(TypeNature::Elementary, &index));
-    assert!(wchar.has_nature(TypeNature::Elementary, &index));
+    assert!(char.has_nature(TypeNature::Elementary));
+    assert!(wchar.has_nature(TypeNature::Elementary));
 
-    assert!(char.has_nature(TypeNature::Any, &index));
-    assert!(wchar.has_nature(TypeNature::Any, &index));
+    assert!(char.has_nature(TypeNature::Any));
+    assert!(wchar.has_nature(TypeNature::Any));
 }
 
 #[test]
@@ -513,17 +512,17 @@ fn any_date_type_test() {
     let date_time = index.get_type_or_panic(DATE_AND_TIME_TYPE);
     let tod = index.get_type_or_panic(TIME_OF_DAY_TYPE);
 
-    assert!(date.has_nature(TypeNature::Date, &index));
-    assert!(date_time.has_nature(TypeNature::Date, &index));
-    assert!(tod.has_nature(TypeNature::Date, &index));
+    assert!(date.has_nature(TypeNature::Date));
+    assert!(date_time.has_nature(TypeNature::Date));
+    assert!(tod.has_nature(TypeNature::Date));
 
-    assert!(date.has_nature(TypeNature::Elementary, &index));
-    assert!(date_time.has_nature(TypeNature::Elementary, &index));
-    assert!(tod.has_nature(TypeNature::Elementary, &index));
+    assert!(date.has_nature(TypeNature::Elementary));
+    assert!(date_time.has_nature(TypeNature::Elementary));
+    assert!(tod.has_nature(TypeNature::Elementary));
 
-    assert!(date.has_nature(TypeNature::Any, &index));
-    assert!(date_time.has_nature(TypeNature::Any, &index));
-    assert!(tod.has_nature(TypeNature::Any, &index));
+    assert!(date.has_nature(TypeNature::Any));
+    assert!(date_time.has_nature(TypeNature::Any));
+    assert!(tod.has_nature(TypeNature::Any));
 }
 
 #[test]
@@ -533,8 +532,7 @@ fn array_size_single_dim_tests() {
     let array_20 = typesystem::DataType {
         name: "ARRAY_20".into(),
         initial_value: None,
-        information: typesystem::DataTypeInformation::Array {
-            name: "ARRAY_20".into(),
+        information: typesystem::DataTypeDefinition::Array {
             inner_type_name: "INT".into(),
             dimensions: vec![Dimension {
                 start_offset: TypeSize::LiteralInteger(1),
@@ -544,6 +542,7 @@ fn array_size_single_dim_tests() {
         nature: TypeNature::Any,
         location: SymbolLocation::internal(),
         alias_of: None,
+        sub_range: None,
     };
     //the size of the array is 20*size(int)
     assert_eq!(320, array_20.get_type_information().get_size_in_bits(&index));
@@ -556,8 +555,7 @@ fn array_size_multi_dim_tests() {
     let array_20_20 = typesystem::DataType {
         name: "ARRAY_20_20".into(),
         initial_value: None,
-        information: typesystem::DataTypeInformation::Array {
-            name: "ARRAY_20_20".into(),
+        information: typesystem::DataTypeDefinition::Array {
             inner_type_name: "INT".into(),
             dimensions: vec![
                 Dimension {
@@ -573,6 +571,7 @@ fn array_size_multi_dim_tests() {
         nature: TypeNature::Any,
         location: SymbolLocation::internal(),
         alias_of: None,
+        sub_range: None,
     };
     //the size of the array is 20*size(int)
     assert_eq!(6400, array_20_20.get_type_information().get_size_in_bits(&index));
@@ -585,8 +584,7 @@ fn array_size_nested_tests() {
     let array_20 = typesystem::DataType {
         name: "ARRAY_20".into(),
         initial_value: None,
-        information: typesystem::DataTypeInformation::Array {
-            name: "ARRAY_20".into(),
+        information: typesystem::DataTypeDefinition::Array {
             inner_type_name: "INT".into(),
             dimensions: vec![Dimension {
                 start_offset: TypeSize::LiteralInteger(1),
@@ -596,13 +594,13 @@ fn array_size_nested_tests() {
         nature: TypeNature::Any,
         location: SymbolLocation::internal(),
         alias_of: None,
+        sub_range: None,
     };
     index.register_type(array_20);
     let nested_array = typesystem::DataType {
         name: "NESTED_ARRAY".into(),
         initial_value: None,
-        information: typesystem::DataTypeInformation::Array {
-            name: "NESTED_ARRAY".into(),
+        information: typesystem::DataTypeDefinition::Array {
             inner_type_name: "ARRAY_20".into(),
             dimensions: vec![Dimension {
                 start_offset: TypeSize::LiteralInteger(1),
@@ -612,6 +610,7 @@ fn array_size_nested_tests() {
         nature: TypeNature::Any,
         location: SymbolLocation::internal(),
         alias_of: None,
+        sub_range: None,
     };
 
     //the size of the array is 20*size(int)

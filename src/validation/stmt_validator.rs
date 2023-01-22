@@ -2,11 +2,11 @@ use std::{convert::TryInto, mem::discriminant};
 
 use super::ValidationContext;
 use crate::{
-    ast::{AstStatement, DirectAccessType, Operator, SourceRange},
+    ast::{AstStatement, DirectAccessType, Operator, SourceRange, TypeNature},
     index::{ArgumentType, VariableIndexEntry, VariableType},
     resolver::{AnnotationMap, StatementAnnotation},
     typesystem::{
-        DataType, DataTypeInformation, Dimension, BOOL_TYPE, DATE_AND_TIME_TYPE, DATE_TYPE, DINT_TYPE,
+        DataType, DataTypeDefinition, Dimension, BOOL_TYPE, DATE_AND_TIME_TYPE, DATE_TYPE, DINT_TYPE,
         INT_TYPE, LINT_TYPE, LREAL_TYPE, POINTER_SIZE, SINT_TYPE, STRING_TYPE, TIME_OF_DAY_TYPE, TIME_TYPE,
         UDINT_TYPE, UINT_TYPE, ULINT_TYPE, USINT_TYPE, VOID_TYPE, WSTRING_TYPE,
     },
@@ -57,9 +57,9 @@ impl StatementValidator {
             }
             AstStatement::ArrayAccess { reference, access, .. } => {
                 let target_type =
-                    context.ast_annotation.get_type_or_void(reference, context.index).get_type_information();
+                    context.ast_annotation.get_type_or_void(reference, context.index);
 
-                if let DataTypeInformation::Array { dimensions, .. } = target_type {
+                if let DataTypeDefinition::Array { dimensions, .. } = target_type.get_type_information() {
                     if let AstStatement::ExpressionList { expressions, .. } = access.as_ref() {
                         for (i, exp) in expressions.iter().enumerate() {
                             self.validate_array_access(exp, dimensions, i, context);
@@ -81,10 +81,9 @@ impl StatementValidator {
                 {
                     let target_type = context
                         .ast_annotation
-                        .get_type_or_void(reference, context.index)
-                        .get_type_information();
-                    if target_type.is_int() {
-                        if !access.is_compatible(target_type, context.index) {
+                        .get_type_or_void(reference, context.index);
+                    if target_type.get_type_information().is_int() {
+                        if !access.is_compatible(target_type.get_type_information(), context.index) {
                             self.diagnostics.push(Diagnostic::incompatible_directaccess(
                                 &format!("{:?}", access),
                                 access.get_bit_width(),
@@ -121,31 +120,30 @@ impl StatementValidator {
 
                     let l_effective_type = context
                         .index
-                        .get_effective_type_or_void_by_name(l_resulting_type)
-                        .get_type_information();
+                        .get_effective_type_or_void_by_name(l_resulting_type);
                     let r_effective_type =
-                        context.ast_annotation.get_type_or_void(right, context.index).get_type_information();
+                        context.ast_annotation.get_type_or_void(right, context.index);
 
                     //check if Datatype can hold a Pointer (u64)
-                    if r_effective_type.is_pointer()
-                        && !l_effective_type.is_pointer()
-                        && l_effective_type.get_size_in_bits(context.index) < POINTER_SIZE
+                    if r_effective_type.get_type_information().is_pointer()
+                        && !l_effective_type.get_type_information().is_pointer()
+                        && l_effective_type.get_type_information().get_size_in_bits(context.index) < POINTER_SIZE
                     {
                         self.diagnostics.push(Diagnostic::incompatible_type_size(
                             l_effective_type.get_name(),
-                            l_effective_type.get_size_in_bits(context.index),
+                            l_effective_type.get_type_information().get_size_in_bits(context.index),
                             "hold a",
                             statement.get_location(),
                         ));
                     }
                     //check if size allocated to Pointer is standart pointer size (u64)
-                    else if l_effective_type.is_pointer()
-                        && !r_effective_type.is_pointer()
-                        && r_effective_type.get_size_in_bits(context.index) < POINTER_SIZE
+                    else if l_effective_type.get_type_information().is_pointer()
+                        && !r_effective_type.get_type_information().is_pointer()
+                        && r_effective_type.get_type_information().get_size_in_bits(context.index) < POINTER_SIZE
                     {
                         self.diagnostics.push(Diagnostic::incompatible_type_size(
                             r_effective_type.get_name(),
-                            r_effective_type.get_size_in_bits(context.index),
+                            r_effective_type.get_type_information().get_size_in_bits(context.index),
                             "to be stored in a",
                             statement.get_location(),
                         ));
@@ -153,7 +151,7 @@ impl StatementValidator {
 
                     // valid assignments -> char := literalString, char := char
                     // check if we assign to a character variable -> char := ..
-                    if l_effective_type.is_character() {
+                    if l_effective_type.is_char() {
                         if let AstStatement::LiteralString { value, location, .. } = right.as_ref() {
                             // literalString may only be 1 character long
                             if value.len() > 1 {
@@ -174,7 +172,7 @@ impl StatementValidator {
                                 statement.get_location(),
                             ));
                         }
-                    } else if r_effective_type.is_character() {
+                    } else if r_effective_type.is_char() {
                         // if we try to assign a character variable -> .. := char
                         // and didn't match the first if, left and right won't have the same type -> invalid assignment
                         self.diagnostics.push(Diagnostic::invalid_assignment(
@@ -216,7 +214,7 @@ impl StatementValidator {
             .get_type_hint(statement, context.index)
             .or_else(|| context.ast_annotation.get_type(statement, context.index))
         {
-            if let DataTypeInformation::Generic { generic_symbol, nature, .. } =
+            if let DataTypeDefinition::Generic { generic_symbol, nature, .. } =
                 statement_type.get_type_information()
             {
                 self.diagnostics.push(Diagnostic::unresolved_generic_type(
@@ -229,7 +227,7 @@ impl StatementValidator {
                 .get_type(statement, context.index)
                 .zip(context.ast_annotation.get_generic_nature(statement))
             {
-                if !statement_type.has_nature(actual_type.nature, context.index)
+                if !statement_type.has_nature(actual_type.nature)
 				// INT parameter for REAL is allowed
                     & !(statement_type.is_real() & actual_type.is_numerical())
                 {
@@ -248,17 +246,17 @@ impl StatementValidator {
         context: &ValidationContext,
         access_index: &AstStatement,
         access_type: &DirectAccessType,
-        target_type: &DataTypeInformation,
+        target_type: &DataType,
         location: &SourceRange,
     ) {
         match *access_index {
             AstStatement::LiteralInteger { value, .. } => {
-                if !access_type.is_in_range(value.try_into().unwrap_or_default(), target_type, context.index)
+                if !access_type.is_in_range(value.try_into().unwrap_or_default(), target_type.get_type_information(), context.index)
                 {
                     self.diagnostics.push(Diagnostic::incompatible_directaccess_range(
                         &format!("{:?}", access_type),
                         target_type.get_name(),
-                        access_type.get_range(target_type, context.index),
+                        access_type.get_range(target_type.get_type_information(), context.index),
                         location.clone(),
                     ))
                 }
@@ -296,8 +294,8 @@ impl StatementValidator {
             }
         } else {
             let type_info =
-                context.ast_annotation.get_type_or_void(access, context.index).get_type_information();
-            if !type_info.is_int() {
+                context.ast_annotation.get_type_or_void(access, context.index);
+            if !type_info.get_type_information().is_int() {
                 self.diagnostics.push(Diagnostic::incompatible_array_access_type(
                     type_info.get_name(),
                     access.get_location(),
@@ -346,14 +344,14 @@ impl StatementValidator {
         location: &SourceRange,
         context: &ValidationContext,
     ) {
-        let cast_type = context.index.get_effective_type_or_void_by_name(type_name).get_type_information();
-
+        let cast_type= context.index.get_effective_type_or_void_by_name(type_name);
+        let cast_type_information = cast_type.get_type_information();
         let literal_type = context
             .index
-            .find_effective_type_info(
+            .find_effective_type_by_name(
                 StatementValidator::get_literal_actual_signed_type_name(
                     literal,
-                    !cast_type.is_unsigned_int(),
+                    !cast_type_information.is_unsigned_int(),
                 )
                 .or_else(|| {
                     context.ast_annotation.get_type_hint(literal, context.index).map(DataType::get_name)
@@ -362,7 +360,8 @@ impl StatementValidator {
                     context.ast_annotation.get_type_or_void(literal, context.index).get_name()
                 }),
             )
-            .unwrap_or_else(|| context.index.get_void_type().get_type_information());
+            .unwrap_or_else(|| context.index.get_void_type());
+        let literal_type_information = literal_type.get_type_information();
 
         if !is_typable_literal(literal) {
             self.diagnostics.push(Diagnostic::literal_expected(location.clone()))
@@ -373,16 +372,16 @@ impl StatementValidator {
                 location.clone(),
             ));
             //see if target and cast_type are compatible
-        } else if cast_type.is_int() && literal_type.is_int() {
+        } else if cast_type_information.is_int() && literal_type_information.is_int() {
             //INTs with INTs
-            if cast_type.get_semantic_size(context.index) < literal_type.get_semantic_size(context.index) {
+            if cast_type_information.get_semantic_size(context.index) < literal_type_information.get_semantic_size(context.index) {
                 self.diagnostics.push(Diagnostic::literal_out_of_range(
                     StatementValidator::get_literal_value(literal).as_str(),
                     cast_type.get_name(),
                     location.clone(),
                 ));
             }
-        } else if cast_type.is_character() && literal_type.is_string() {
+        } else if cast_type.is_char() && literal_type_information.is_string() {
             let value = StatementValidator::get_literal_value(literal);
             // value contains "" / ''
             if value.len() > 3 {
@@ -392,10 +391,10 @@ impl StatementValidator {
                     location.clone(),
                 ));
             }
-        } else if discriminant(cast_type) != discriminant(literal_type) {
+        } else if discriminant(cast_type_information) != discriminant(literal_type_information) {
             // different types
             // REAL#100 is fine, other differences are not
-            if !(cast_type.is_float() && literal_type.is_int()) {
+            if !(cast_type_information.is_float() && literal_type_information.is_int()) {
                 self.diagnostics.push(Diagnostic::incompatible_literal_cast(
                     cast_type.get_name(),
                     StatementValidator::get_literal_value(literal).as_str(),
@@ -458,14 +457,14 @@ impl StatementValidator {
         right: &AstStatement,
         binary_statement: &AstStatement,
     ) {
-        let left_type = context.ast_annotation.get_type_or_void(left, context.index).get_type_information();
-        let right_type = context.ast_annotation.get_type_or_void(right, context.index).get_type_information();
+        let left_type = context.ast_annotation.get_type_or_void(left, context.index);
+        let right_type = context.ast_annotation.get_type_or_void(right, context.index);
 
         // if the type is a subrange, check if the intrinsic type is numerical
-        let is_numerical = context.index.find_intrinsic_type(left_type).is_numerical();
+        let is_numerical = context.index.find_intrinsic_type(left_type.get_type_information()).is_numerical();
 
         if std::mem::discriminant(left_type) == std::mem::discriminant(right_type)
-            && !(is_numerical || left_type.is_pointer())
+            && !(is_numerical || left_type.get_type_information().is_pointer())
         {
             //see if we have the right compare-function (non-numbers are compared using user-defined callback-functions)
             if operator.is_comparison_operator()
@@ -510,12 +509,10 @@ fn compare_function_exists(type_name: &str, operator: &Operator, context: &Valid
             let type_name_1 = context
                 .index
                 .get_effective_type_or_void_by_name(type_name_1)
-                .get_type_information()
                 .get_name();
             let type_name_2 = context
                 .index
                 .get_effective_type_or_void_by_name(type_name_2)
-                .get_type_information()
                 .get_name();
 
             //both parameters must have the same type and the return type must be BOOL
@@ -528,11 +525,8 @@ fn compare_function_exists(type_name: &str, operator: &Operator, context: &Valid
     false
 }
 
-fn is_date_or_time_type(cast_type: &crate::typesystem::DataTypeInformation) -> bool {
-    return cast_type.get_name() == DATE_TYPE
-        || cast_type.get_name() == DATE_AND_TIME_TYPE
-        || cast_type.get_name() == TIME_OF_DAY_TYPE
-        || cast_type.get_name() == TIME_TYPE;
+fn is_date_or_time_type(cast_type: &crate::typesystem::DataType) -> bool {
+    cast_type.has_nature(TypeNature::Date) || cast_type.has_nature(TypeNature::Duration)
 }
 
 /// returns true if this AST Statement is a literal that can be
