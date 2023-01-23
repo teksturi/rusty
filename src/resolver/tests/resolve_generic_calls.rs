@@ -486,7 +486,7 @@ fn builtin_adr_ref_return_annotated() {
         let actual_type = AnnotationMap::get_type(&annotations, right, &index);
         let reference_type = annotations.get_type_or_void(right, &index);
 
-        match reference_type.get_type_information() {
+        match reference_type.get_definition() {
             DataTypeDefinition::Pointer { inner_type_name, .. } => {
                 assert_eq!(actual_type.unwrap().get_name(), "__POINTER_TO_DINT");
                 assert_eq!(DINT_TYPE, index.find_effective_type_by_name(inner_type_name).unwrap().get_name())

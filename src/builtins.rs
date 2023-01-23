@@ -226,7 +226,7 @@ lazy_static! {
                         let real_type = annotator.index.get_type_or_panic(REAL_TYPE);
                         let is_exponent_positive_literal = if let AstStatement::LiteralInteger { value, .. } = exponent { value.is_positive() } else {false};
                         if let (Some(element_type), Some(exponent_type)) = (element_type, exponent_type) {
-                            let (element_type, exponant_type)  = match (element_type.get_type_information(), exponent_type.get_type_information()) {
+                            let (element_type, exponant_type)  = match (element_type.get_definition(), exponent_type.get_definition()) {
                                 //If both params are int types, convert to a common type and call an int power function
                                 (DataTypeDefinition::Integer { .. }, DataTypeDefinition::Integer {signed : false, size, ..})
                                 | (DataTypeDefinition::Integer { .. }, DataTypeDefinition::Integer {signed : true, size, ..}) if is_exponent_positive_literal => {

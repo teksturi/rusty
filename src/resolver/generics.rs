@@ -172,7 +172,7 @@ impl<'i> TypeAnnotator<'i> {
     ) -> String {
         let data_type = self.index.find_effective_type_by_name(member_name).unwrap_or_else(|| self.index.get_void_type());
         let name = data_type.get_name();
-        match data_type.get_type_information() {
+        match data_type.get_definition() {
             DataTypeDefinition::Generic { generic_symbol, .. } => {
                 // this is a generic member, so lets see what it's generic symbol is and translate it
                 generics
@@ -334,20 +334,20 @@ impl<'i> TypeAnnotator<'i> {
         let mut generic_map: HashMap<String, GenericType> = HashMap::new();
         for GenericBinding { name, nature } in generics {
             let smallest_possible_type =
-                self.index.find_effective_type_info(nature.get_smallest_possible_type());
+                self.index.find_effective_type_by_name(nature.get_smallest_possible_type());
             //Get the current binding
             if let Some(candidates) = generics_candidates.get(name) {
                 //Find the best suiting type
                 let winner = candidates
                     .iter()
-                    .fold(smallest_possible_type, |previous_type: Option<&DataTypeDefinition>, current| {
+                    .fold(smallest_possible_type, |previous_type: Option<&DataType>, current| {
                         let current_type = self
                             .index
                             .find_effective_type_by_name(current)
                             // if type is not found, look for it in new index, because the type could have been created recently
                             .or_else(|| self.annotation_map.new_index.find_effective_type_by_name(current))
                             .map(|it| {
-                                match it.get_type_information() {
+                                match it.get_definition() {
                                     // generic strings are a special case and need to be handled differently
                                     DataTypeDefinition::String {
                                         encoding: StringEncoding::Utf8, ..
@@ -355,7 +355,7 @@ impl<'i> TypeAnnotator<'i> {
                                     DataTypeDefinition::String {
                                         encoding: StringEncoding::Utf16, ..
                                     } => self.index.find_effective_type_by_name(WSTRING_TYPE).unwrap_or(it),
-                                    _ => !todo!("check what to do with alias types"), //it    
+                                    _ => it
                                 }
                             });
 
@@ -374,18 +374,18 @@ impl<'i> TypeAnnotator<'i> {
                             {
                                 // if we got the right nature we can search for the bigger type
                                 if let Some(previous) = previous_type {
-                                    return Some(typesystem::get_bigger_type(current.get_type_information(), previous, self.index));
+                                    return Some(typesystem::get_bigger_type(current, previous, self.index));
                                 } else {
                                     // if the previous type was None just return the current
                                     // type should be ok because of the previouse nature check
-                                    return current_type.map(|it| it.get_type_information());
+                                    return current_type;
                                 }
                             }
                         }
                         // if we didn't get the right nature return the last one
                         previous_type
                     })
-                    .map(DataTypeDefinition::get_name);
+                    .map(DataType::get_name);
                 if let Some(winner) = winner {
                     generic_map.insert(
                         name.into(),

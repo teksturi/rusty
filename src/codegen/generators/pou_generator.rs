@@ -85,7 +85,7 @@ pub fn generate_global_constants_for_pou_members<'ink>(
         let pou_members = index.get_container_members(type_name);
         let variables = pou_members.iter().filter(|it| it.is_local() || it.is_temp()).filter(|it| {
             let var_type =
-                index.get_effective_type_or_void_by_name(it.get_type_name()).get_type_information();
+                index.get_effective_type_or_void_by_name(it.get_type_name()).get_definition();
             var_type.is_struct() || var_type.is_array() || var_type.is_string()
         });
         let exp_gen = ExpressionCodeGenerator::new_context_free(llvm, index, annotations, llvm_index);
@@ -594,7 +594,7 @@ impl<'ink, 'cg> PouGenerator<'ink, 'cg> {
         // initialize the variable with the initial_value
         let variable_data_type = self.index.get_effective_type_or_void_by_name(variable.get_type_name());
 
-        let v_type_info = variable_data_type.get_type_information();
+        let v_type_info = variable_data_type.get_definition();
 
         const DEFAULT_ALIGNMENT: u32 = 1;
         let (value, alignment) =

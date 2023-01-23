@@ -132,7 +132,7 @@ impl GlobalValidator {
                     .find_effective_type_by_name(g.get_type_name())
                     .map(|it| {
                         matches!(
-                            it.information,
+                            it.definition,
                             DataTypeDefinition::Struct {
                                 source: StructSource::Pou(PouType::FunctionBlock),
                                 ..

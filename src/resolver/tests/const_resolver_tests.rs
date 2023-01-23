@@ -1057,7 +1057,7 @@ fn nested_array_literals_type_resolving() {
     //check the initializer's array-element's types
     if let AstStatement::LiteralArray { elements: Some(e), .. } = initializer {
         if let Some(DataTypeDefinition::Array { inner_type_name, .. }) =
-            index.find_effective_type_by_name(a.get_type_name()).map(|t| t.get_type_information())
+            index.find_effective_type_by_name(a.get_type_name()).map(|t| t.get_definition())
         {
             //check the type of the expression-list has the same type as the variable itself
             /*assert_eq!(
@@ -1119,7 +1119,7 @@ fn nested_array_literals_multiplied_statement_type_resolving() {
     if let AstStatement::LiteralArray { elements: Some(outer_expresion_list), .. } = initializer {
         // outer_expression_list = [2(2)],[2(3)]
         if let Some(DataTypeDefinition::Array { inner_type_name: array_of_byte, .. }) =
-            index.find_effective_type_by_name(a.get_type_name()).map(|t| t.get_type_information())
+            index.find_effective_type_by_name(a.get_type_name()).map(|t| t.get_definition())
         {
             //check the type of the expression-list has the same type as the variable itself
             assert_eq!(

@@ -274,7 +274,7 @@ fn enum_literals_target_are_annotated() {
             elements: vec!["Green".into(), "Yellow".into(), "Red".into()],
             referenced_type: DINT_TYPE.into(),
         },
-        annotations.get_type_or_void(color_red, &index).get_type_information()
+        annotations.get_type_or_void(color_red, &index).get_definition()
     );
 
     if let AstStatement::CastStatement { target, .. } = color_red {
@@ -283,7 +283,7 @@ fn enum_literals_target_are_annotated() {
                 elements: vec!["Green".into(), "Yellow".into(), "Red".into()],
                 referenced_type: DINT_TYPE.into(),
             },
-            annotations.get_type_or_void(target, &index).get_type_information()
+            annotations.get_type_or_void(target, &index).get_definition()
         );
     } else {
         panic!("no cast statement")
@@ -456,7 +456,7 @@ fn expression_list_as_array_initilization_is_annotated_correctly() {
     if let AstStatement::ExpressionList { expressions, .. } = a_init {
         for exp in expressions {
             if let Some(data_type) = annotations.get_type_hint(exp, &index) {
-                let type_info = data_type.get_type_information();
+                let type_info = data_type.get_definition();
                 assert!(matches!(type_info, DataTypeDefinition::Integer { .. }))
             } else {
                 unreachable!();
@@ -472,7 +472,7 @@ fn expression_list_as_array_initilization_is_annotated_correctly() {
     if let AstStatement::ExpressionList { expressions, .. } = b_init {
         for exp in expressions {
             let data_type = annotations.get_type_hint(exp, &index).unwrap();
-            let type_info = data_type.get_type_information();
+            let type_info = data_type.get_definition();
             assert_eq!(
                 type_info,
                 &DataTypeDefinition::String {

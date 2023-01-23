@@ -531,7 +531,7 @@ impl<'i> TypeAnnotator<'i> {
     ) {
         if let Some(expected_type) = self.annotation_map.get_type(annotated_left_side, self.index).cloned() {
             // for assignments on SubRanges check if there are range type check functions
-            if let DataTypeDefinition::SubRange { sub_range, .. } = expected_type.get_type_information() {
+            if let DataTypeDefinition::SubRange { sub_range, .. } = expected_type.get_definition() {
                 if let Some(statement) = self
                     .index
                     .find_range_check_implementation_for(&expected_type)
@@ -585,7 +585,7 @@ impl<'i> TypeAnnotator<'i> {
                 }
                 //annotate the array's member elements with the array's inner type
                 if let DataTypeDefinition::Array { inner_type_name, .. } =
-                    expected_type.get_type_information()
+                    expected_type.get_definition()
                 {
                     if let Some(inner_type) = self.index.find_effective_type_by_name(inner_type_name) {
                         self.update_expected_types(inner_type, elements);
@@ -598,7 +598,7 @@ impl<'i> TypeAnnotator<'i> {
                 if let (
                     typesystem::DataTypeDefinition::Struct { container_name: qualifier, .. },
                     AstStatement::Reference { name: variable_name, .. },
-                ) = (expected_type.get_type_information(), left.as_ref())
+                ) = (expected_type.get_definition(), left.as_ref())
                 {
                     if let Some(v) = self.index.find_member(qualifier, variable_name) {
                         if let Some(target_type) = self.index.find_effective_type_by_name(v.get_type_name()) {
@@ -633,11 +633,11 @@ impl<'i> TypeAnnotator<'i> {
             AstStatement::LiteralInteger { .. } => {
                 //special case -> promote a literal-Integer directly, not via type-hint
                 // (avoid later cast)
-                if expected_type.get_type_information().is_float() {
+                if expected_type.get_definition().is_float() {
                     self.annotation_map
                         .annotate(statement, StatementAnnotation::value(expected_type.get_name()))
                 } else if let DataTypeDefinition::Array { inner_type_name, .. } =
-                    expected_type.get_type_information()
+                    expected_type.get_definition()
                 {
                     self.annotation_map
                         .annotate_type_hint(statement, StatementAnnotation::value(inner_type_name))
@@ -651,7 +651,7 @@ impl<'i> TypeAnnotator<'i> {
                 // needed if we try to initialize an array with an expression-list
                 // without we would annotate a false type this would leed to an error in expression_generator
                 if let DataTypeDefinition::Array { inner_type_name, .. } =
-                    expected_type.get_type_information()
+                    expected_type.get_definition()
                 {
                     self.annotation_map
                         .annotate_type_hint(statement, StatementAnnotation::value(inner_type_name))
@@ -698,10 +698,10 @@ impl<'i> TypeAnnotator<'i> {
 
                 // handle annotation for array of struct
                 if let DataTypeDefinition::Array { inner_type_name, .. } =
-                    expected_type.get_type_information()
+                    expected_type.get_definition()
                 {
                     let struct_type = self.index.get_effective_type_or_void_by_name(inner_type_name);
-                    if struct_type.get_type_information().is_struct() {
+                    if struct_type.get_definition().is_struct() {
                         if let AstStatement::ExpressionList { expressions, .. } = initializer {
                             let ctx = ctx.with_qualifier(struct_type.get_name().to_string());
                             for e in expressions {
@@ -829,7 +829,7 @@ impl<'i> TypeAnnotator<'i> {
                     access,
                 );
                 let array_type =
-                    self.annotation_map.get_type_or_void(reference, self.index).get_type_information();
+                    self.annotation_map.get_type_or_void(reference, self.index).get_definition();
                 let inner_type_name = if let DataTypeDefinition::Array { inner_type_name, .. } = array_type {
                     Some(
                         self.index.get_effective_type_or_void_by_name(inner_type_name).get_name().to_string(),
@@ -845,7 +845,7 @@ impl<'i> TypeAnnotator<'i> {
             AstStatement::PointerAccess { reference, .. } => {
                 visit_all_statements!(self, ctx, reference);
                 let pointer_type =
-                    self.annotation_map.get_type_or_void(reference, self.index).get_type_information();
+                    self.annotation_map.get_type_or_void(reference, self.index).get_definition();
                 if let DataTypeDefinition::Pointer { inner_type_name, .. } = pointer_type {
                     let t = self
                         .index
@@ -882,7 +882,7 @@ impl<'i> TypeAnnotator<'i> {
                         .unwrap_or_else(|| self.index.get_void_type());
                     // do not use for is_pointer() check
                     let l_intrinsic_type =
-                        self.index.get_intrinsic_type_by_name(left_type.get_name()).get_type_information();
+                        self.index.get_intrinsic_type_by_name(left_type.get_name()).get_definition();
                     let right_type = self
                         .annotation_map
                         .get_type_hint(right, self.index)
@@ -891,7 +891,7 @@ impl<'i> TypeAnnotator<'i> {
                         .unwrap_or_else(|| self.index.get_void_type());
                     // do not use for is_pointer() check
                     let r_intrinsic_type =
-                        self.index.get_intrinsic_type_by_name(right_type.get_name()).get_type_information();
+                        self.index.get_intrinsic_type_by_name(right_type.get_name()).get_definition();
 
                     if l_intrinsic_type.is_numerical() && r_intrinsic_type.is_numerical() {
                         let bigger_type = if l_intrinsic_type.is_bool() && r_intrinsic_type.is_bool() {
@@ -926,23 +926,23 @@ impl<'i> TypeAnnotator<'i> {
                         }
 
                         Some(target_name)
-                    } else if left_type.get_type_information().is_pointer()
-                        || right_type.get_type_information().is_pointer()
+                    } else if left_type.get_definition().is_pointer()
+                        || right_type.get_definition().is_pointer()
                     {
                         // get the target type of the binary expression
                         let target_type = if operator.is_comparison_operator() {
                             // compare instructions result in BOOL
                             // to generate valid IR code if a pointer is beeing compared to an integer
                             // we need to cast the int to the pointers size
-                            if !left_type.get_type_information().is_pointer() {
+                            if !left_type.get_definition().is_pointer() {
                                 let left_type = left_type.clone(); // clone here, so we release the borrow on self
                                 self.annotate_to_pointer_size_if_necessary(&left_type, left);
-                            } else if !right_type.get_type_information().is_pointer() {
+                            } else if !right_type.get_definition().is_pointer() {
                                 let right_type = right_type.clone(); // clone here, so we release the borrow on self
                                 self.annotate_to_pointer_size_if_necessary(&right_type, right);
                             }
                             BOOL_TYPE
-                        } else if left_type.get_type_information().is_pointer() {
+                        } else if left_type.get_definition().is_pointer() {
                             left_type.get_name()
                         } else {
                             right_type.get_name()
@@ -1134,7 +1134,7 @@ impl<'i> TypeAnnotator<'i> {
                 //see if this type really exists
                 let data_type = self.index.find_effective_type_by_name(type_name);
 
-                let statement_to_annotation = if let Some(typesystem::DataType { name, information: DataTypeDefinition::Enum{..}, ..}) = data_type  
+                let statement_to_annotation = if let Some(typesystem::DataType { name, definition: DataTypeDefinition::Enum{..}, ..}) = data_type  
                 {
                     //enum cast
                     self.visit_statement(&ctx.with_qualifier(name.to_string()), target);
@@ -1144,7 +1144,7 @@ impl<'i> TypeAnnotator<'i> {
                 } else if let Some(t) = data_type {
                     // special handling for unlucky casted-strings where caste-type does not match the literal encoding
                     // ´STRING#"abc"´ or ´WSTRING#'abc'´
-                    match (t.get_type_information(), target.as_ref()) {
+                    match (t.get_definition(), target.as_ref()) {
                         (
                             DataTypeDefinition::String { encoding: StringEncoding::Utf8, .. },
                             AstStatement::LiteralString { value, is_wide: is_wide @ true, location, id },
@@ -1254,7 +1254,7 @@ impl<'i> TypeAnnotator<'i> {
                                 let type_name = if let Some(data_type) =
                                     self.annotation_map.get_type(parameter, self.index)
                                 {
-                                    match &data_type.information {
+                                    match &data_type.definition {
                                         DataTypeDefinition::Float { .. } => get_bigger_type(
                                             data_type,
                                             self.index.get_type_or_panic(LREAL_TYPE),
@@ -1262,7 +1262,7 @@ impl<'i> TypeAnnotator<'i> {
                                         )
                                         .get_name(),
                                         DataTypeDefinition::Integer { .. }
-                                            if !&data_type.information.is_bool() =>
+                                            if !&data_type.definition.is_bool() =>
                                         {
                                             get_bigger_type(
                                                 data_type,
@@ -1486,7 +1486,7 @@ fn to_variable_annotation(
     let v_type = index.get_effective_type_or_void_by_name(v.get_type_name());
 
     //see if this is an auto-deref variable
-    let (effective_type_name, is_auto_deref) = match (v_type.get_type_information(), v.is_return()) {
+    let (effective_type_name, is_auto_deref) = match (v_type.get_definition(), v.is_return()) {
         (_, true) if v_type.is_aggregate_type() => {
             // treat a return-aggregate variable like an auto-deref pointer since it got
             // passed by-ref

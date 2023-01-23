@@ -173,7 +173,7 @@ pub fn evaluate_constants(mut index: Index) -> (Index, Vec<UnresolvableConstant>
             ) {
                 let candidates_type = target_type
                     .and_then(|type_name| index.find_effective_type_by_name(type_name))
-                    .map(DataType::get_type_information);
+                    .map(DataType::get_definition);
 
                 if candidates_type
                     .map(|it| (it.is_struct() || it.is_array()) && const_expr.is_default())
@@ -278,7 +278,7 @@ fn get_default_initializer(
         evaluate(init, None, index) //TODO do we ave a scope here?
     } else {
         let data_type = index.find_effective_type_by_name(target_type).unwrap_or_else(|| index.get_void_type());
-        let dt = data_type.get_type_information();
+        let dt = data_type.get_definition();
         let init = match dt {
             DataTypeDefinition::Pointer { .. } => {
                 Some(AstStatement::LiteralNull { location: location.clone(), id })
@@ -319,7 +319,7 @@ fn cast_if_necessary(literal: AstStatement, target_type_name: &Option<&str>, ind
     if let Some(data_type) = target_type_name.and_then(|it| index.find_effective_type_by_name(it)) {
         match &literal {
             AstStatement::LiteralInteger { value, id, location } => {
-                if data_type.get_type_information().is_float() {
+                if data_type.get_definition().is_float() {
                     return AstStatement::LiteralReal {
                         value: format!("{:}", value),
                         id: *id,
@@ -329,7 +329,7 @@ fn cast_if_necessary(literal: AstStatement, target_type_name: &Option<&str>, ind
             }
             AstStatement::LiteralString { value, id, location, is_wide: false } => {
                 if matches!(
-                    data_type.get_type_information(),
+                    data_type.get_definition(),
                     DataTypeDefinition::String { encoding: StringEncoding::Utf16, .. }
                 ) {
                     return AstStatement::LiteralString {
@@ -342,7 +342,7 @@ fn cast_if_necessary(literal: AstStatement, target_type_name: &Option<&str>, ind
             }
             AstStatement::LiteralString { value, id, location, is_wide: true } => {
                 if matches!(
-                    data_type.get_type_information(),
+                    data_type.get_definition(),
                     DataTypeDefinition::String { encoding: StringEncoding::Utf8, .. }
                 ) {
                     return AstStatement::LiteralString {
@@ -397,7 +397,7 @@ pub fn evaluate_with_target_hint(
         AstStatement::CastStatement { target, type_name, .. } => match index
             .find_effective_type_by_name(type_name)
         {
-            Some(DataType {name: enum_name, information: DataTypeDefinition::Enum { .. }, ..}) => {
+            Some(DataType {name: enum_name, definition: DataTypeDefinition::Enum { .. }, ..}) => {
                 //TODO check for alias
                 if let AstStatement::Reference { name: ref_name, .. } = target.as_ref() {
                     return index
@@ -611,7 +611,7 @@ fn get_cast_statement_literal(
     scope: Option<&str>,
     index: &Index,
 ) -> Result<AstStatement, String> {
-    match index.find_effective_type_by_name(type_name).map(DataType::get_type_information) {
+    match index.find_effective_type_by_name(type_name).map(DataType::get_definition) {
         Some(&crate::typesystem::DataTypeDefinition::Integer { signed, size, semantic_size, .. }) => {
             let evaluated_initial = evaluate(cast_statement, scope, index)?
                 .as_ref()

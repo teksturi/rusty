@@ -105,8 +105,8 @@ pub struct DataType {
     pub name: String,
     /// the initial value defined on the TYPE-declaration
     pub initial_value: Option<ConstId>,
-    /// the dataTypeInformation which holds information about the type's category (numeric, array, string, etc.)
-    pub information: DataTypeDefinition,
+    /// the defintion of the type. It holds information about the type's inner structure (numeric, array, string, etc.)
+    pub definition: DataTypeDefinition,
     /// the type's nature according to IEC61131-3
     pub nature: TypeNature,
     /// the location of the type's declaration
@@ -115,7 +115,6 @@ pub struct DataType {
     pub alias_of: Option<String>,
     /// an optional range limitation of the type (for sub-range types)
     pub sub_range: Option<Range<AstStatement>>,
-
 }
 
 impl DataType {
@@ -126,19 +125,23 @@ impl DataType {
         nature: TypeNature,
         location: SymbolLocation,
     ) -> Self {
-        Self { name, initial_value, nature, location, information, alias_of: None, sub_range: None }
+        Self {
+            name,
+            initial_value,
+            nature,
+            location,
+            definition: information,
+            alias_of: None,
+            sub_range: None,
+        }
     }
 
     pub fn get_name(&self) -> &str {
         self.name.as_str()
     }
 
-    pub fn get_type_information(&self) -> &DataTypeDefinition {
-        &self.information
-    }
-
-    pub fn clone_type_information(&self) -> DataTypeDefinition {
-        self.information.clone()
+    pub fn get_definition(&self) -> &DataTypeDefinition {
+        &self.definition
     }
 
     pub fn has_nature(&self, nature: TypeNature) -> bool {
@@ -164,7 +167,7 @@ impl DataType {
 
     /// returns true if this type is an array, struct or string
     pub fn is_aggregate_type(&self) -> bool {
-        self.get_type_information().is_agregate()
+        self.get_definition().is_agregate()
     }
 
     pub fn create_alias(
@@ -177,14 +180,41 @@ impl DataType {
         DataType {
             name: new_name.clone(),
             initial_value,
-            information: self.information.clone_with_new_name(new_name),
+            definition: self.definition.clone_with_new_name(new_name),
             nature,
             location,
             alias_of: Some(self.get_name().to_string()),
             sub_range: self.sub_range.clone(),
         }
     }
-    
+
+    pub fn get_display_name(&self, index: &Index) -> String {
+        match self.get_definition() {
+            DataTypeDefinition::Array { inner_type_name, dimensions } => {
+                let dimensions_strings = dimensions
+                    .iter()
+                    .map(|it| {
+                        format!(
+                            "[{}]",
+                            it.get_range(index)
+                                .map(|it| format!("{:?}", it))
+                                .unwrap_or_else(|_| "?".to_string())
+                        )
+                    })
+                    .collect::<Vec<_>>();
+
+                let inner_type_name = index.get_type_or_void(inner_type_name).get_display_name(index);
+                format!("ARRAY{} OF {inner_type_name}", dimensions_strings.join(","))
+            }
+            DataTypeDefinition::Pointer { inner_type_name, .. } => {
+                let inner_type_name = index.get_type_or_void(inner_type_name).get_display_name(index);
+                format!("REF_TO {inner_type_name}")
+            }
+            DataTypeDefinition::String { encoding: StringEncoding::Utf8, .. } => STRING_TYPE.to_string(),
+            DataTypeDefinition::String { encoding: StringEncoding::Utf16, .. } => WSTRING_TYPE.to_string(),
+            _ => self.get_name().to_string(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -269,7 +299,7 @@ type TypeId = String;
 #[derive(Debug, Clone, PartialEq)]
 pub enum DataTypeDefinition {
     Struct {
-        container_name: String, 
+        container_name: String,
         member_names: Vec<String>,
         source: StructSource,
     },
@@ -314,7 +344,6 @@ pub enum DataTypeDefinition {
 }
 
 impl DataTypeDefinition {
-
     pub fn is_string(&self) -> bool {
         matches!(self, DataTypeDefinition::String { .. })
     }
@@ -375,7 +404,7 @@ impl DataTypeDefinition {
             | DataTypeDefinition::Pointer { inner_type_name, .. }
             | DataTypeDefinition::Alias { referenced_type: inner_type_name, .. } => index
                 .find_effective_type_by_name(inner_type_name)
-                .map(|dt| dt.get_type_information().is_generic(index))
+                .map(|dt| dt.get_definition().is_generic(index))
                 .unwrap_or(false),
             DataTypeDefinition::Generic { .. } => true,
             _ => false,
@@ -506,7 +535,7 @@ impl DataTypeDefinition {
         cpy
     }
 
-    fn to_str(&self)-> &str {
+    fn to_str(&self) -> &str {
         match self {
             DataTypeDefinition::Struct { .. } => "Struct",
             DataTypeDefinition::Array { .. } => "Array",
@@ -521,7 +550,6 @@ impl DataTypeDefinition {
             DataTypeDefinition::Void => "Void",
         }
     }
-
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -562,13 +590,13 @@ impl<'a> DataTypeInformationProvider<'a> for &'a DataTypeDefinition {
 
 impl<'a> From<&'a DataType> for &'a DataTypeDefinition {
     fn from(dt: &'a DataType) -> Self {
-        dt.get_type_information()
+        dt.get_definition()
     }
 }
 
 impl<'a> DataTypeInformationProvider<'a> for &'a DataType {
     fn get_type_information(&self) -> &DataTypeDefinition {
-        DataType::get_type_information(self)
+        DataType::get_definition(self)
     }
 }
 
@@ -577,11 +605,7 @@ macro_rules! int_type {
         DataType {
             name: $name,
             initial_value: None,
-            information: DataTypeDefinition::Integer {
-                signed: $signed,
-                size: $size,
-                semantic_size: None,
-            },
+            definition: DataTypeDefinition::Integer { signed: $signed, size: $size, semantic_size: None },
             nature: $nature,
             location: SymbolLocation::internal(),
             alias_of: None,
@@ -611,11 +635,7 @@ pub fn get_builtin_types() -> Vec<DataType> {
         DataType::new(
             BOOL_TYPE.into(),
             None,
-            DataTypeDefinition::Integer {
-                signed: false,
-                size: BOOL_SIZE,
-                semantic_size: Some(1),
-            },
+            DataTypeDefinition::Integer { signed: false, size: BOOL_SIZE, semantic_size: Some(1) },
             TypeNature::Bit,
             SymbolLocation::internal(),
         ),
@@ -656,22 +676,14 @@ pub fn get_builtin_types() -> Vec<DataType> {
         DataType::new(
             CHAR_TYPE.into(),
             None,
-            DataTypeDefinition::Integer {
-                signed: false,
-                size: 8,
-                semantic_size: None,
-            },
+            DataTypeDefinition::Integer { signed: false, size: 8, semantic_size: None },
             TypeNature::Char,
             SymbolLocation::internal(),
         ),
         DataType::new(
             WCHAR_TYPE.into(),
             None,
-            DataTypeDefinition::Integer {
-                signed: false,
-                size: 16,
-                semantic_size: None,
-            },
+            DataTypeDefinition::Integer { signed: false, size: 16, semantic_size: None },
             TypeNature::Char,
             SymbolLocation::internal(),
         ),
@@ -742,13 +754,13 @@ pub fn is_same_type_class(ltype: &DataTypeDefinition, rtype: &DataTypeDefinition
 }
 
 /// Returns the bigger of the two provided types
-pub fn get_bigger_type<'t, T: DataTypeInformationProvider<'t> + std::convert::From<&'t DataType>>(
-    left_type: T,
-    right_type: T,
+pub fn get_bigger_type<'t>(
+    left_type: &'t DataType,
+    right_type: &'t DataType,
     index: &'t Index,
-) -> T {
-    let lt = left_type.get_type_information();
-    let rt = right_type.get_type_information();
+) -> &'t DataType {
+    let lt = left_type.get_definition();
+    let rt = right_type.get_definition();
 
     let ldt = index.get_type(left_type.get_name());
     let rdt = index.get_type(right_type.get_name());
@@ -762,11 +774,11 @@ pub fn get_bigger_type<'t, T: DataTypeInformationProvider<'t> + std::convert::Fr
         // check is_numerical() on TypeNature e.g. DataTypeInformation::Integer is numerical but also used for CHARS which are not considered as numerical
         if (ldt.is_numerical() && rdt.is_numerical()) && (ldt.is_real() || rdt.is_real()) {
             let real_type = index.get_type_or_panic(REAL_TYPE);
-            let real_size = real_type.get_type_information().get_size_in_bits(index);
+            let real_size = real_type.get_definition().get_size_in_bits(index);
             if lt.get_size_in_bits(index) > real_size || rt.get_size_in_bits(index) > real_size {
-                return index.get_type_or_panic(LREAL_TYPE).into();
+                return index.get_type_or_panic(LREAL_TYPE);
             } else {
-                return real_type.into();
+                return real_type;
             }
         }
     }
@@ -776,11 +788,8 @@ pub fn get_bigger_type<'t, T: DataTypeInformationProvider<'t> + std::convert::Fr
 
 /// returns the signed version of the given data_type if its a signed int-type
 /// returns the original type if it is no signed int-type
-pub fn get_signed_type<'t>(
-    data_type: &'t DataType,
-    index: &'t Index,
-) -> Option<&'t DataType> {
-    if data_type.get_type_information().is_int() {
+pub fn get_signed_type<'t>(data_type: &'t DataType, index: &'t Index) -> Option<&'t DataType> {
+    if data_type.get_definition().is_int() {
         let signed_type = match data_type.get_name() {
             BYTE_TYPE => SINT_TYPE,
             USINT_TYPE => SINT_TYPE,

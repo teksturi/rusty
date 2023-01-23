@@ -59,7 +59,7 @@ impl StatementValidator {
                 let target_type =
                     context.ast_annotation.get_type_or_void(reference, context.index);
 
-                if let DataTypeDefinition::Array { dimensions, .. } = target_type.get_type_information() {
+                if let DataTypeDefinition::Array { dimensions, .. } = target_type.get_definition() {
                     if let AstStatement::ExpressionList { expressions, .. } = access.as_ref() {
                         for (i, exp) in expressions.iter().enumerate() {
                             self.validate_array_access(exp, dimensions, i, context);
@@ -82,8 +82,8 @@ impl StatementValidator {
                     let target_type = context
                         .ast_annotation
                         .get_type_or_void(reference, context.index);
-                    if target_type.get_type_information().is_int() {
-                        if !access.is_compatible(target_type.get_type_information(), context.index) {
+                    if target_type.get_definition().is_int() {
+                        if !access.is_compatible(target_type.get_definition(), context.index) {
                             self.diagnostics.push(Diagnostic::incompatible_directaccess(
                                 &format!("{:?}", access),
                                 access.get_bit_width(),
@@ -125,25 +125,25 @@ impl StatementValidator {
                         context.ast_annotation.get_type_or_void(right, context.index);
 
                     //check if Datatype can hold a Pointer (u64)
-                    if r_effective_type.get_type_information().is_pointer()
-                        && !l_effective_type.get_type_information().is_pointer()
-                        && l_effective_type.get_type_information().get_size_in_bits(context.index) < POINTER_SIZE
+                    if r_effective_type.get_definition().is_pointer()
+                        && !l_effective_type.get_definition().is_pointer()
+                        && l_effective_type.get_definition().get_size_in_bits(context.index) < POINTER_SIZE
                     {
                         self.diagnostics.push(Diagnostic::incompatible_type_size(
                             l_effective_type.get_name(),
-                            l_effective_type.get_type_information().get_size_in_bits(context.index),
+                            l_effective_type.get_definition().get_size_in_bits(context.index),
                             "hold a",
                             statement.get_location(),
                         ));
                     }
                     //check if size allocated to Pointer is standart pointer size (u64)
-                    else if l_effective_type.get_type_information().is_pointer()
-                        && !r_effective_type.get_type_information().is_pointer()
-                        && r_effective_type.get_type_information().get_size_in_bits(context.index) < POINTER_SIZE
+                    else if l_effective_type.get_definition().is_pointer()
+                        && !r_effective_type.get_definition().is_pointer()
+                        && r_effective_type.get_definition().get_size_in_bits(context.index) < POINTER_SIZE
                     {
                         self.diagnostics.push(Diagnostic::incompatible_type_size(
                             r_effective_type.get_name(),
-                            r_effective_type.get_type_information().get_size_in_bits(context.index),
+                            r_effective_type.get_definition().get_size_in_bits(context.index),
                             "to be stored in a",
                             statement.get_location(),
                         ));
@@ -215,7 +215,7 @@ impl StatementValidator {
             .or_else(|| context.ast_annotation.get_type(statement, context.index))
         {
             if let DataTypeDefinition::Generic { generic_symbol, nature, .. } =
-                statement_type.get_type_information()
+                statement_type.get_definition()
             {
                 self.diagnostics.push(Diagnostic::unresolved_generic_type(
                     generic_symbol,
@@ -251,19 +251,19 @@ impl StatementValidator {
     ) {
         match *access_index {
             AstStatement::LiteralInteger { value, .. } => {
-                if !access_type.is_in_range(value.try_into().unwrap_or_default(), target_type.get_type_information(), context.index)
+                if !access_type.is_in_range(value.try_into().unwrap_or_default(), target_type.get_definition(), context.index)
                 {
                     self.diagnostics.push(Diagnostic::incompatible_directaccess_range(
                         &format!("{:?}", access_type),
                         target_type.get_name(),
-                        access_type.get_range(target_type.get_type_information(), context.index),
+                        access_type.get_range(target_type.get_definition(), context.index),
                         location.clone(),
                     ))
                 }
             }
             AstStatement::Reference { .. } => {
                 let ref_type = context.ast_annotation.get_type_or_void(access_index, context.index);
-                if !ref_type.get_type_information().is_int() {
+                if !ref_type.get_definition().is_int() {
                     self.diagnostics.push(Diagnostic::incompatible_directaccess_variable(
                         ref_type.get_name(),
                         location.clone(),
@@ -295,7 +295,7 @@ impl StatementValidator {
         } else {
             let type_info =
                 context.ast_annotation.get_type_or_void(access, context.index);
-            if !type_info.get_type_information().is_int() {
+            if !type_info.get_definition().is_int() {
                 self.diagnostics.push(Diagnostic::incompatible_array_access_type(
                     type_info.get_name(),
                     access.get_location(),
@@ -345,7 +345,7 @@ impl StatementValidator {
         context: &ValidationContext,
     ) {
         let cast_type= context.index.get_effective_type_or_void_by_name(type_name);
-        let cast_type_information = cast_type.get_type_information();
+        let cast_type_information = cast_type.get_definition();
         let literal_type = context
             .index
             .find_effective_type_by_name(
@@ -361,7 +361,7 @@ impl StatementValidator {
                 }),
             )
             .unwrap_or_else(|| context.index.get_void_type());
-        let literal_type_information = literal_type.get_type_information();
+        let literal_type_information = literal_type.get_definition();
 
         if !is_typable_literal(literal) {
             self.diagnostics.push(Diagnostic::literal_expected(location.clone()))
@@ -461,10 +461,10 @@ impl StatementValidator {
         let right_type = context.ast_annotation.get_type_or_void(right, context.index);
 
         // if the type is a subrange, check if the intrinsic type is numerical
-        let is_numerical = context.index.find_intrinsic_type(left_type.get_type_information()).is_numerical();
+        let is_numerical = context.index.find_intrinsic_type(left_type.get_definition()).is_numerical();
 
-        if std::mem::discriminant(left_type) == std::mem::discriminant(right_type)
-            && !(is_numerical || left_type.get_type_information().is_pointer())
+        if std::mem::discriminant(left_type.get_definition()) == std::mem::discriminant(right_type.get_definition())
+            && !(is_numerical || left_type.get_definition().is_pointer())
         {
             //see if we have the right compare-function (non-numbers are compared using user-defined callback-functions)
             if operator.is_comparison_operator()

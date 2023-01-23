@@ -414,11 +414,11 @@ impl Validator {
     ) {
         // for parameters passed `ByRef` we need to check the inner type of the pointer
         let left_type_info = if matches!(left.variable_type, ArgumentType::ByRef(..)) {
-            index.find_elementary_pointer_type(left_type.get_type_information())
+            index.find_elementary_pointer_type(left_type.get_definition())
         } else {
-            index.find_intrinsic_type(left_type.get_type_information())
+            index.find_intrinsic_type(left_type.get_definition())
         };
-        let right_type_info = index.find_intrinsic_type(right_type.get_type_information());
+        let right_type_info = index.find_intrinsic_type(right_type.get_definition());
         // stmt_validator `validate_type_nature()` should report any error see `generic_validation_tests` ignore generics here and safe work
         if !matches!(left_type_info, DataTypeDefinition::Generic { .. })
             & !typesystem::is_same_type_class(left_type_info, right_type_info, index)

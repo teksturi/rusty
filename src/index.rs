@@ -721,7 +721,7 @@ impl TypeIndex {
     /// Retrieves the "Effective" type behind this datatype
     /// An effective type will be any end type i.e. Structs, Integers, Floats, String and Array
     pub fn find_effective_type<'ret>(&'ret self, data_type: &'ret DataType) -> Option<&'ret DataType> {
-        match data_type.get_type_information() {
+        match data_type.get_definition() {
             DataTypeDefinition::Alias { referenced_type, .. } => {
                 self.find_type(referenced_type).and_then(|it| self.find_effective_type(it))
             }
@@ -829,7 +829,7 @@ impl Index {
                     e.initial_value =
                         self.maybe_import_const_expr(&mut other.constant_expressions, &e.initial_value);
 
-                    match &mut e.information {
+                    match &mut e.definition {
                         //import constant expressions in array-type-definitions
                         DataTypeDefinition::Array { dimensions, .. } => {
                             for d in dimensions.iter_mut() {
@@ -883,12 +883,12 @@ impl Index {
             let mut current = alias;
             let mut current_initial = alias.initial_value;
 
-            while let DataTypeDefinition::Alias { referenced_type, .. } = current.get_type_information() {
+            while let DataTypeDefinition::Alias { referenced_type, .. } = current.get_definition() {
                 current = self.type_index.find_type(referenced_type).unwrap_or(&type_index.void_type);
                 current_initial = current_initial.or(current.initial_value);
             }
 
-            if let DataTypeDefinition::Struct { container_name, .. } = current.get_type_information() {
+            if let DataTypeDefinition::Struct { container_name, .. } = current.get_definition() {
                 if alias != current {
                     // we aliased a struct, so we also need to register the members for that name
                     // we collect new struct fields,  until we can release the borrow on self
@@ -1140,7 +1140,7 @@ impl Index {
 
     /// returns the effective DataTypeInformation of the type with the given name if it exists
     pub fn find_effective_type_info(&self, type_name: &str) -> Option<&DataTypeDefinition> {
-        self.find_effective_type_by_name(type_name).map(DataType::get_type_information)
+        self.find_effective_type_by_name(type_name).map(DataType::get_definition)
     }
 
     /// returns the effective type of the type with the with the given name or the
@@ -1156,7 +1156,7 @@ impl Index {
     pub fn get_intrinsic_type_by_name(&self, type_name: &str) -> &DataType {
         let effective_type = self.type_index.get_effective_type_by_name(type_name);
 
-        match effective_type.get_type_information() {
+        match effective_type.get_definition() {
             DataTypeDefinition::SubRange { referenced_type, .. } => {
                 self.get_intrinsic_type_by_name(referenced_type.as_str())
             }
@@ -1199,12 +1199,12 @@ impl Index {
         //check if we have no initial value AND this type is an alias to another type
         while initial_value.is_none()
             && matches!(
-                dt.map(|it| &it.information),
+                dt.map(|it| &it.definition),
                 Some(DataTypeDefinition::Alias { .. } | DataTypeDefinition::SubRange { .. })
             )
         {
             //try to fetch initial value of the aliased type
-            dt = dt.and_then(|it| self.get_aliased_target_type(&it.information));
+            dt = dt.and_then(|it| self.get_aliased_target_type(&it.definition));
             initial_value = dt.and_then(|it| it.initial_value);
         }
         self.get_initial_value(&initial_value)
@@ -1222,9 +1222,12 @@ impl Index {
     }
 
     pub fn get_type_information_or_void(&self, type_name: &str) -> &DataTypeDefinition {
+        self.get_type_or_void(type_name).get_definition()
+    }
+
+    pub fn get_type_or_void(&self, type_name: &str) -> &DataType {
         self.find_effective_type_by_name(type_name)
-            .map(|it| it.get_type_information())
-            .unwrap_or_else(|| self.get_void_type().get_type_information())
+            .unwrap_or_else(|| self.get_void_type())
     }
 
     /// Returns the map of types, should not be used to search for types --> see find_type
@@ -1506,7 +1509,7 @@ impl Index {
             self.find_effective_type_by_name(alias)
                 .and_then(|info| self.find_range_check_implementation_for(info))
         } else {
-            match &range_type.information {
+            match &range_type.definition {
                 DataTypeDefinition::Integer { signed, size, .. } if *signed && *size <= 32 => {
                     self.find_pou_implementation(RANGE_CHECK_S_FN)
                 }
@@ -1523,6 +1526,8 @@ impl Index {
             }
         }
     }
+
+    
 }
 
 /// Returns a default initialization name for a variable or type

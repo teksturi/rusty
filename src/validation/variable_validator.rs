@@ -104,12 +104,12 @@ fn data_type_is_fb_or_class_instance(type_name: &str, index: &Index) -> bool {
     if let DataTypeDefinition::Struct {
         source: StructSource::Pou(PouType::FunctionBlock) | StructSource::Pou(PouType::Class),
         ..
-    } = data_type.get_type_information()
+    } = data_type.get_definition()
     {
         return true;
     }
 
-    match data_type.get_type_information() {
+    match data_type.get_definition() {
         DataTypeDefinition::Struct { member_names, container_name: name, .. } =>
         //see if any member is fb or class intance
         {

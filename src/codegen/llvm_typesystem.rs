@@ -123,16 +123,16 @@ pub fn cast_if_needed<'ctx>(
     llvm: &Llvm<'ctx>,
     index: &Index,
     llvm_type_index: &LlvmTypedIndex<'ctx>,
-    target_type: &DataType,
+    target_data_type: &DataType,
     value: BasicValueEnum<'ctx>,
-    value_type: &DataType,
+    value_data_type: &DataType,
     //TODO: Could be location
     statement: &AstStatement,
 ) -> Result<BasicValueEnum<'ctx>, Diagnostic> {
     let builder = &llvm.builder;
-    let target_type = index.get_intrinsic_type_by_name(target_type.get_name()).get_type_information();
+    let target_type = index.get_intrinsic_type_by_name(target_data_type.get_name()).get_definition();
 
-    let value_type = index.get_intrinsic_type_by_name(value_type.get_name()).get_type_information();
+    let value_type = index.get_intrinsic_type_by_name(value_data_type.get_name()).get_definition();
 
     // if the current or target type are generic (unresolved or builtin)
     // return the value without modification
@@ -187,8 +187,8 @@ pub fn cast_if_needed<'ctx>(
                         || (*lsize == 16 && matches!(encoding, StringEncoding::Utf8))
                     {
                         return Err(Diagnostic::casting_error(
-                            value_type.get_name(),
-                            target_type.get_name(),
+                            value_data_type.get_name(),
+                            target_data_type.get_name(),
                             statement.get_location(),
                         ));
                     };
@@ -210,8 +210,8 @@ pub fn cast_if_needed<'ctx>(
                     )
                     .into()),
                 _ => Err(Diagnostic::casting_error(
-                    value_type.get_name(),
-                    target_type.get_name(),
+                    value_data_type.get_name(),
+                    target_data_type.get_name(),
                     statement.get_location(),
                 )),
             }
@@ -256,8 +256,8 @@ pub fn cast_if_needed<'ctx>(
                 }
             }
             _ => Err(Diagnostic::casting_error(
-                value_type.get_name(),
-                target_type.get_name(),
+                value_data_type.get_name(),
+                target_data_type.get_name(),
                 statement.get_location(),
             )),
         },
@@ -265,16 +265,16 @@ pub fn cast_if_needed<'ctx>(
             DataTypeDefinition::String { encoding: value_encoding, .. } => {
                 if encoding != value_encoding {
                     return Err(Diagnostic::casting_error(
-                        value_type.get_name(),
-                        target_type.get_name(),
+                        value_data_type.get_name(),
+                        target_data_type.get_name(),
                         statement.get_location(),
                     ));
                 }
                 Ok(value)
             }
             _ => Err(Diagnostic::casting_error(
-                value_type.get_name(),
-                target_type.get_name(),
+                value_data_type.get_name(),
+                target_data_type.get_name(),
                 statement.get_location(),
             )),
         },
@@ -283,12 +283,12 @@ pub fn cast_if_needed<'ctx>(
                 .builder
                 .build_int_to_ptr(
                     value.into_int_value(),
-                    llvm_type_index.get_associated_type(target_type.get_name())?.into_pointer_type(),
+                    llvm_type_index.get_associated_type(target_data_type.get_name())?.into_pointer_type(),
                     "",
                 )
                 .into()),
             DataTypeDefinition::Pointer { .. } | DataTypeDefinition::Void { .. } => {
-                let target_ptr_type = llvm_type_index.get_associated_type(target_type.get_name())?;
+                let target_ptr_type = llvm_type_index.get_associated_type(target_data_type.get_name())?;
                 if value.get_type() != target_ptr_type {
                     // bit-cast necessary
                     Ok(builder.build_bitcast(value, target_ptr_type, ""))
@@ -298,8 +298,8 @@ pub fn cast_if_needed<'ctx>(
                 }
             }
             _ => Err(Diagnostic::casting_error(
-                value_type.get_name(),
-                target_type.get_name(),
+                value_data_type.get_name(),
+                target_data_type.get_name(),
                 statement.get_location(),
             )),
         },

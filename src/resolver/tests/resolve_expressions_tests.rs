@@ -2663,7 +2663,7 @@ fn resolve_function_with_same_name_as_return_type() {
     let effective_type = index.find_effective_type_by_name("TIME").unwrap();
     assert_eq!(effective_type, associated_type);
     // AND should be Integer
-    assert!(matches!(effective_type.get_type_information(), DataTypeDefinition::Integer { .. }))
+    assert!(matches!(effective_type.get_definition(), DataTypeDefinition::Integer { .. }))
 }
 
 #[test]

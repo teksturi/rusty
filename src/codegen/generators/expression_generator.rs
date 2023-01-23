@@ -1,5 +1,5 @@
-// Copyright (c) 2020 Ghaith Hachem and Mathias Rieder
 use crate::{
+// Copyright (c) 2020 Ghaith Hachem and Mathias Rieder
     ast::{self, DirectAccessType, SourceRange},
     codegen::{
         debug::{Debug, DebugBuilderEnum},
@@ -294,9 +294,9 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
         expression: &AstStatement,
     ) -> Result<BasicValueEnum<'ink>, Diagnostic> {
         let l_type_hint = self.get_type_hint_for(left)?;
-        let ltype = self.index.get_intrinsic_type_by_name(l_type_hint.get_name()).get_type_information();
+        let ltype = self.index.get_intrinsic_type_by_name(l_type_hint.get_name()).get_definition();
         let r_type_hint = self.get_type_hint_for(right)?;
-        let rtype = self.index.get_intrinsic_type_by_name(r_type_hint.get_name()).get_type_information();
+        let rtype = self.index.get_intrinsic_type_by_name(r_type_hint.get_name()).get_definition();
         if ltype.is_bool() && rtype.is_bool() {
             return self.generate_bool_binary_expression(operator, left, right);
         }
@@ -316,7 +316,7 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
             || (ltype.is_int() && rtype.is_pointer())
             || (ltype.is_pointer() && rtype.is_pointer())
         {
-            self.create_llvm_binary_expression_for_pointer(operator, left, ltype, right, rtype, expression)
+            self.create_llvm_binary_expression_for_pointer(operator, left, l_type_hint, right, r_type_hint, expression)
         } else {
             self.create_llvm_generic_binary_expression(operator, left, right, expression)
         }
@@ -353,13 +353,13 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
         let expression_type = self.get_type_hint_for(&expression)?;
         if let AstStatement::DirectAccess { access, index, .. } = last {
             //Generate and load the index value
-            let datatype = self.get_type_hint_info_for(last)?;
+            let datatype = self.get_type_hint_for(last)?;
             let rhs = self.generate_direct_access_index(access, index, datatype, expression_type)?;
             //Shift the qualifer value right by the index value
             let shift = self.llvm.builder.build_right_shift(
                 value.into_int_value(),
                 rhs,
-                expression_type.get_type_information().is_signed_int(),
+                expression_type.get_definition().is_signed_int(),
                 "shift",
             );
             //Trunc the result to the get only the target size
@@ -375,7 +375,7 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
         &self,
         access: &DirectAccessType,
         index: &AstStatement,
-        access_type: &DataTypeDefinition,
+        access_type: &DataType,
         target_type: &DataType,
     ) -> Result<IntValue<'ink>, Diagnostic> {
         let reference = self.generate_expression(index)?;
@@ -399,7 +399,7 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
             //Multiply by the bitwitdh
             if access.get_bit_width() > 1 {
                 let bitwidth =
-                    reference.get_type().const_int(access.get_bit_width(), access_type.is_signed_int());
+                    reference.get_type().const_int(access.get_bit_width(), access_type.get_definition().is_signed_int());
 
                 Ok(self.llvm.builder.build_int_mul(reference, bitwidth, ""))
             } else {
@@ -421,7 +421,7 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
                 let operator = self.generate_expression(expression)?.into_int_value();
                 let operator = if self
                     .get_type_hint_for(expression)
-                    .map(|it| it.get_type_information().is_bool())
+                    .map(|it| it.get_definition().is_bool())
                     .unwrap_or_default()
                 {
                     to_i1(operator, &self.llvm.builder)
@@ -620,7 +620,7 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
                 let assigned_output = self.generate_element_pointer(expression)?;
 
                 let assigned_output_type =
-                    self.annotations.get_type_or_void(expression, self.index).get_type_information();
+                    self.annotations.get_type_or_void(expression, self.index);
 
                 let output = builder.build_struct_gep(parameter_struct, index as u32, "").map_err(|_| {
                     Diagnostic::codegen_error(
@@ -629,12 +629,14 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
                     )
                 })?;
 
-                let output_value_type = self.index.get_type_information_or_void(parameter.get_type_name());
+                let output_value_type = self.index.get_type_or_void(parameter.get_type_name());
 
                 //Special string handling
-                if (assigned_output_type.is_string() && output_value_type.is_string())
-                    || (assigned_output_type.is_struct() && output_value_type.is_struct())
-                    || (assigned_output_type.is_array() && output_value_type.is_array())
+                let assigned_out_def = assigned_output_type.get_definition();
+                let value_def = output_value_type.get_definition();
+                if (assigned_out_def.is_string() && value_def.is_string())
+                    || (assigned_out_def.is_struct() && value_def.is_struct())
+                    || (assigned_out_def.is_array() && value_def.is_array())
                 {
                     self.generate_string_store(
                         assigned_output,
@@ -811,7 +813,7 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
         param_statement: &AstStatement,
     ) -> Result<BasicValueEnum<'ink>, Diagnostic> {
         Ok(match self.index.find_effective_type_by_name(type_name) {
-            Some(type_info) if type_info.information.is_string() => {
+            Some(type_info) if type_info.definition.is_string() => {
                 self.generate_string_argument(type_info, param_statement)?
             }
             _ => self.generate_expression(param_statement)?,
@@ -842,7 +844,7 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
                     .ok_or_else(|| Diagnostic::unknown_type(type_info.get_name(), argument.get_location()))?,
             )
             .map_err(|it| Diagnostic::codegen_error(it, argument.get_location()))?;
-        self.generate_store(temp_variable, type_info.get_type_information(), argument)?;
+        self.generate_store(temp_variable, type_info, argument)?;
         Ok(self.llvm.builder.build_load(temp_variable, ""))
     }
 
@@ -1120,10 +1122,9 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
                 .index
                 .find_parameter(function_name, index as u32)
                 .and_then(|var| self.index.find_effective_type_by_name(var.get_type_name()))
-                .map(|var| var.get_type_information())
-                .unwrap_or_else(|| self.index.get_void_type().get_type_information());
+                .unwrap_or_else(|| self.index.get_void_type());
 
-            if let DataTypeDefinition::Pointer { auto_deref: true, inner_type_name, .. } = parameter {
+            if let DataTypeDefinition::Pointer { auto_deref: true, inner_type_name, .. } = parameter.get_definition() {
                 //this is VAR_IN_OUT assignemt, so don't load the value, assign the pointer
 
                 //expression may be empty -> generate a local variable for it
@@ -1491,9 +1492,9 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
         &self,
         operator: &Operator,
         left: &AstStatement,
-        left_type: &DataTypeDefinition,
+        left_type: &DataType,
         right: &AstStatement,
-        right_type: &DataTypeDefinition,
+        right_type: &DataType,
         expression: &AstStatement,
     ) -> Result<BasicValueEnum<'ink>, Diagnostic> {
         let left_expr = self.generate_expression(left)?;
@@ -1501,12 +1502,12 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
 
         let result = match operator {
             Operator::Plus | Operator::Minus => {
-                let (ptr, index, name) = if left_type.is_pointer() && right_type.is_int() {
+                let (ptr, index, name) = if left_type.get_definition().is_pointer() && right_type.get_definition().is_int() {
                     let ptr = left_expr.into_pointer_value();
                     let index = right_expr.into_int_value();
                     let name = format!("access_{}", left_type.get_name());
                     (Some(ptr), Some(index), Some(name))
-                } else if left_type.is_int() && right_type.is_pointer() {
+                } else if left_type.get_definition().is_int() && right_type.get_definition().is_pointer() {
                     let ptr = right_expr.into_pointer_value();
                     let index = left_expr.into_int_value();
                     let name = format!("access_{}", right_type.get_name());
@@ -1733,8 +1734,8 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
         let type_hint = self.get_type_hint_for(stmt)?;
         let actual_type = self.annotations.get_type_or_void(stmt, self.index);
         let literal_type_name = if is_same_type_class(
-            type_hint.get_type_information(),
-            actual_type.get_type_information(),
+            type_hint.get_definition(),
+            actual_type.get_definition(),
             self.index,
         ) {
             type_hint.get_name()
@@ -1828,17 +1829,17 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
         value: &str,
         location: &SourceRange,
     ) -> Result<ExpressionValue<'ink>, Diagnostic> {
-        let expected_type = self.get_type_hint_info_for(literal_statement)?;
+        let expected_type = self.get_type_hint_for(literal_statement)?;
         self.generate_string_literal_for_type(expected_type, value, location)
     }
 
     fn generate_string_literal_for_type(
         &self,
-        expected_type: &DataTypeDefinition,
+        expected_type: &DataType,
         value: &str,
         location: &SourceRange,
     ) -> Result<ExpressionValue<'ink>, Diagnostic> {
-        match expected_type {
+        match expected_type.get_definition() {
             DataTypeDefinition::String { encoding, size, .. } => {
                 let declared_length = size.as_int_value(self.index).map_err(|msg| {
                     Diagnostic::codegen_error(
@@ -1885,13 +1886,13 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
                 }
             }
             DataTypeDefinition::Pointer { inner_type_name, auto_deref: true, .. } => {
-                let inner_type = self.index.get_type_information_or_void(inner_type_name);
+                let inner_type = self.index.get_type_or_void(inner_type_name);
                 self.generate_string_literal_for_type(inner_type, value, location)
             }
-            DataTypeDefinition::Integer { size: 8, .. } if expected_type.is_character() => {
+            DataTypeDefinition::Integer { size: 8, .. } if expected_type.is_char() => {
                 self.llvm.create_llvm_const_i8_char(value, location).map(ExpressionValue::RValue)
             }
-            DataTypeDefinition::Integer { size: 16, .. } if expected_type.is_character() => {
+            DataTypeDefinition::Integer { size: 16, .. } if expected_type.is_char() => {
                 self.llvm.create_llvm_const_i16_char(value, location).map(ExpressionValue::RValue)
             }
             _ => Err(Diagnostic::cannot_generate_string_literal(expected_type.get_name(), location.clone())),
@@ -1906,7 +1907,7 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
         &self,
         statement: &AstStatement,
     ) -> Result<&DataTypeDefinition, Diagnostic> {
-        self.get_type_hint_for(statement).map(DataType::get_type_information)
+        self.get_type_hint_for(statement).map(DataType::get_definition)
     }
 
     /// returns the data type associated to the given statement using the following strategy:
@@ -1931,7 +1932,7 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
         assignments: &AstStatement,
         declaration_location: &SourceRange,
     ) -> Result<ExpressionValue<'ink>, Diagnostic> {
-        if let DataTypeDefinition::Struct { name: struct_name, member_names, .. } =
+        if let DataTypeDefinition::Struct { container_name: struct_name, member_names, .. } =
             self.get_type_hint_info_for(assignments)?
         {
             let mut uninitialized_members: HashSet<&str> =
@@ -2021,7 +2022,7 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
     fn generate_literal_array(&self, initializer: &AstStatement) -> Result<BasicValueEnum<'ink>, Diagnostic> {
         let array_value = self.generate_literal_array_value(
             initializer,
-            self.get_type_hint_info_for(initializer)?,
+            self.get_type_hint_for(initializer)?,
             &initializer.get_location(),
         )?;
         return Ok(array_value.as_basic_value_enum());
@@ -2035,11 +2036,11 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
     fn generate_literal_array_value(
         &self,
         elements: &AstStatement,
-        data_type: &DataTypeDefinition,
+        data_type: &DataType,
         location: &SourceRange,
     ) -> Result<BasicValueEnum<'ink>, Diagnostic> {
         let (inner_type, expected_len) =
-            if let DataTypeDefinition::Array { inner_type_name, dimensions, .. } = data_type {
+            if let DataTypeDefinition::Array { inner_type_name, dimensions, .. } = data_type.get_definition() {
                 let len: u32 = dimensions
                     .iter()
                     .map(|d| d.get_length(self.index))
@@ -2060,7 +2061,7 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
         // to generate the passed structs we need an expression list of assignments
         // flatten_expression_list will will return a vec of only assignments
         let elements =
-            if self.index.get_effective_type_or_void_by_name(inner_type.get_name()).information.is_struct() {
+            if self.index.get_effective_type_or_void_by_name(inner_type.get_name()).definition.is_struct() {
                 match elements {
                     AstStatement::ExpressionList { expressions, .. } => expressions.iter().collect(),
                     _ => unreachable!("This should always be an expression list"),
@@ -2296,7 +2297,7 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
         let left_type = self.get_type_hint_for(left)?;
         let right_type = self.get_type_hint_for(right)?;
         let cmp_function_name = crate::typesystem::get_equals_function_name_for(
-            left_type.get_type_information().get_name(),
+            left_type.get_name(),
             operator,
         );
 
@@ -2327,14 +2328,14 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
     pub fn generate_store(
         &self,
         left: inkwell::values::PointerValue,
-        left_type: &DataTypeDefinition,
+        left_type: &DataType,
         right_statement: &AstStatement,
     ) -> Result<(), Diagnostic> {
         let right_type =
-            self.annotations.get_type_or_void(right_statement, self.index).get_type_information();
+            self.annotations.get_type_or_void(right_statement, self.index);
 
         //Special string handling
-        if left_type.is_string() && right_type.is_string()
+        if left_type.get_definition().is_string() && right_type.get_definition().is_string()
         //string-literals are also generated as global constant variables so we can always assume that
         //we have a pointer-value
         {
@@ -2355,8 +2356,8 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
                 right_type,
                 right_statement.get_location(),
             )?;
-        } else if (left_type.is_struct() && right_type.is_struct())
-            || (left_type.is_array() && right_type.is_array())
+        } else if (left_type.get_definition().is_struct() && right_type.get_definition().is_struct())
+            || (left_type.get_definition().is_array() && right_type.get_definition().is_array())
         {
             //memcopy right_statement into left
             let expression =
@@ -2384,17 +2385,17 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
     pub fn generate_string_store(
         &self,
         left: inkwell::values::PointerValue<'ink>,
-        left_type: &DataTypeDefinition,
+        left_type: &DataType,
         left_location: SourceRange,
         right: inkwell::values::PointerValue<'ink>,
-        right_type: &DataTypeDefinition,
+        right_type: &DataType,
         right_location: SourceRange,
     ) -> Result<PointerValue<'ink>, Diagnostic> {
         let target_size = self.get_string_size(left_type, left_location.clone())?;
         let value_size = self.get_string_size(right_type, right_location)?;
         let size = std::cmp::min(target_size - 1, value_size) as i64;
-        let align_left = left_type.get_string_character_width(self.index).value();
-        let align_right = right_type.get_string_character_width(self.index).value();
+        let align_left = left_type.get_definition().get_string_character_width(self.index).value();
+        let align_right = right_type.get_definition().get_string_character_width(self.index).value();
         //Multiply by the string alignment to copy enough for widestrings
         //This is done at compile time to avoid generating an extra mul
         let size = self.llvm.context.i32_type().const_int((size * align_left as i64) as u64, true);
@@ -2406,10 +2407,10 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
 
     fn get_string_size(
         &self,
-        datatype: &DataTypeDefinition,
+        datatype: &DataType,
         location: SourceRange,
     ) -> Result<i64, Diagnostic> {
-        if let DataTypeDefinition::String { size, .. } = datatype {
+        if let DataTypeDefinition::String { size, .. } = datatype.get_definition() {
             size.as_int_value(self.index).map_err(|err| Diagnostic::codegen_error(err.as_str(), location))
         } else {
             Err(Diagnostic::codegen_error(

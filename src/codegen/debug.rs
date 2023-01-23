@@ -267,7 +267,7 @@ impl<'ink> DebugBuilder<'ink> {
         for (member_name, dt, location) in index_types.into_iter() {
             let di_type = self.get_or_create_debug_type(dt, index)?;
             //Adjust the offset based on the field alignment
-            let type_info = dt.get_type_information();
+            let type_info = dt.get_definition();
             let alignment = type_info.get_alignment(index);
             let size = type_info.get_size(index);
             running_offset = running_offset.align_to(alignment);
@@ -426,7 +426,7 @@ impl<'ink> DebugBuilder<'ink> {
             file,
             location.line_number.wrapping_add(1),
             file.as_debug_info_scope(),
-            inner_dt.get_type_information().get_alignment(index).bits(),
+            inner_dt.get_definition().get_alignment(index).bits(),
         );
         self.register_concrete_type(name, DebugType::Derived(typedef));
 
@@ -507,7 +507,7 @@ impl<'ink> DebugBuilder<'ink> {
             let var_type = index
                 .find_effective_type_by_name(variable.get_type_name())
                 .expect("Type should exist at this stage");
-            let alignment = var_type.get_type_information().get_alignment(index).bits();
+            let alignment = var_type.get_definition().get_alignment(index).bits();
             //If the variable is an aggregate return type, register it as first parameter, and
             //increase the param count
             if variable.is_return() && var_type.is_aggregate_type() {
@@ -627,24 +627,24 @@ impl<'ink> Debug<'ink> for DebugBuilder<'ink> {
     ) -> Result<(), Diagnostic> {
         //check if the type is currently registered
         if !self.types.contains_key(&name.to_lowercase()) {
-            let type_info = datatype.get_type_information();
+            let type_info = datatype.get_definition();
             let size = type_info.get_size(index);
             let alignment = type_info.get_alignment(index);
             let location = &datatype.location;
             match type_info {
                 DataTypeDefinition::Struct { member_names, .. } => {
-                    self.create_struct_type(name, member_names.as_slice(), index, location)
+                    self.create_struct_type(datatype.get_name(), member_names.as_slice(), index, location)
                 }
-                DataTypeDefinition::Array { name, inner_type_name, dimensions, .. } => {
-                    self.create_array_type(name, inner_type_name, dimensions, size, alignment, index)
+                DataTypeDefinition::Array { inner_type_name, dimensions, .. } => {
+                    self.create_array_type(datatype.get_name(), inner_type_name, dimensions, size, alignment, index)
                 }
-                DataTypeDefinition::Pointer { name, inner_type_name, .. } => {
-                    self.create_pointer_type(name, inner_type_name, size, alignment, index)
+                DataTypeDefinition::Pointer { inner_type_name, .. } => {
+                    self.create_pointer_type(datatype.get_name(), inner_type_name, size, alignment, index)
                 }
                 DataTypeDefinition::Integer { signed, size, .. } => {
                     let encoding = if type_info.is_bool() {
                         DebugEncoding::DW_ATE_boolean
-                    } else if type_info.is_character() {
+                    } else if datatype.is_char() {
                         DebugEncoding::DW_ATE_UTF
                     } else {
                         match *signed {
@@ -652,20 +652,20 @@ impl<'ink> Debug<'ink> for DebugBuilder<'ink> {
                             false => DebugEncoding::DW_ATE_unsigned,
                         }
                     };
-                    self.create_basic_type(name, *size as u64, encoding, location)
+                    self.create_basic_type(datatype.get_name(), *size as u64, encoding, location)
                 }
                 DataTypeDefinition::Float { size, .. } => {
-                    self.create_basic_type(name, *size as u64, DebugEncoding::DW_ATE_float, location)
+                    self.create_basic_type(datatype.get_name(), *size as u64, DebugEncoding::DW_ATE_float, location)
                 }
                 DataTypeDefinition::String { size: string_size, encoding, .. } => {
                     let length = string_size
                         .as_int_value(index)
                         .map_err(|err| Diagnostic::codegen_error(&err, SourceRange::undefined()))?;
-                    self.create_string_type(name, length, *encoding, size, alignment, index)
+                    self.create_string_type(datatype.get_name(), length, *encoding, size, alignment, index)
                 }
-                DataTypeDefinition::Alias { name, referenced_type }
-                | DataTypeDefinition::Enum { name, referenced_type, .. } => {
-                    self.create_typedef_type(name, referenced_type, index, location)
+                DataTypeDefinition::Alias { referenced_type }
+                | DataTypeDefinition::Enum { referenced_type, .. } => {
+                    self.create_typedef_type(datatype.get_name(), referenced_type, index, location)
                 }
                 // Other types are just derived basic types
                 _ => Ok(()),

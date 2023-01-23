@@ -127,7 +127,7 @@ pub fn visit_pou(index: &mut Index, pou: &Pou, symbol_location_factory: &SymbolL
         pou.name.to_string(),
         None,
         DataTypeDefinition::Struct {
-            name: pou.name.to_string(),
+            container_name: pou.name.to_string(),
             member_names,
             source: StructSource::Pou(pou.pou_type.clone()),
         },
@@ -249,7 +249,6 @@ fn visit_implementation(
             implementation.name.to_string(),
             None,
             DataTypeDefinition::Alias {
-                name: implementation.name.clone(),
                 referenced_type: implementation.type_name.clone(),
             },
             TypeNature::Derived,
@@ -278,7 +277,6 @@ fn register_byref_pointer_type_for(index: &mut Index, inner_type_name: &str) -> 
             type_name.clone(),
             None,
             DataTypeDefinition::Pointer {
-                name: type_name.clone(),
                 inner_type_name: inner_type_name.to_string(),
                 auto_deref: true,
             },
@@ -346,7 +344,7 @@ fn visit_data_type(
 
             let type_name = name.clone();
             let information = DataTypeDefinition::Struct {
-                name: type_name.clone(),
+                container_name: type_name.clone(),
                 member_names,
                 source: StructSource::OriginalDeclaration,
             };
@@ -423,7 +421,6 @@ fn visit_data_type(
             let enum_name = name.as_str();
 
             let information = DataTypeDefinition::Enum {
-                name: enum_name.to_string(),
                 elements: ast::get_enum_element_names(elements),
                 referenced_type: numeric_type.clone(),
             };
@@ -464,12 +461,11 @@ fn visit_data_type(
         DataType::SubRangeType { name: Some(name), referenced_type, bounds } => {
             let information = if let Some(AstStatement::RangeStatement { start, end, .. }) = bounds {
                 DataTypeDefinition::SubRange {
-                    name: name.into(),
                     referenced_type: referenced_type.into(),
                     sub_range: (*start.clone()..*end.clone()),
                 }
             } else {
-                DataTypeDefinition::Alias { name: name.into(), referenced_type: referenced_type.into() }
+                DataTypeDefinition::Alias { referenced_type: referenced_type.into() }
             };
 
             let init = index.get_mut_const_expressions().maybe_add_constant_expression(
@@ -515,7 +511,6 @@ fn visit_data_type(
             let dimensions = dimensions.unwrap(); //TODO hmm we need to talk about all this unwrapping :-/
             let referenced_type_name = referenced_type.get_name().expect("named datatype");
             let information = DataTypeDefinition::Array {
-                name: name.clone(),
                 inner_type_name: referenced_type_name.to_string(),
                 dimensions,
             };
@@ -556,7 +551,6 @@ fn visit_data_type(
         DataType::PointerType { name: Some(name), referenced_type, .. } => {
             let inner_type_name = referenced_type.get_name().expect("named datatype");
             let information = DataTypeDefinition::Pointer {
-                name: name.clone(),
                 inner_type_name: inner_type_name.into(),
                 auto_deref: false,
             };
@@ -634,7 +628,6 @@ fn visit_data_type(
         DataType::VarArgs { .. } => {} //Varargs are not indexed,
         DataType::GenericType { name, generic_symbol, nature } => {
             let information = DataTypeDefinition::Generic {
-                name: name.clone(),
                 generic_symbol: generic_symbol.clone(),
                 nature: *nature,
             };

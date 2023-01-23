@@ -185,10 +185,10 @@ impl<'a, 'b> StatementCodeGenerator<'a, 'b> {
         }
         let exp_gen = self.create_expr_generator();
         let left = exp_gen.generate_element_pointer(left_statement)?;
-        let left_type = exp_gen.get_type_hint_info_for(left_statement)?;
+        let left_type = exp_gen.get_type_hint_for(left_statement)?;
         // if the lhs-type is a subrange type we may need to generate a check-call
         // e.g. x := y,  ==> x := CheckSignedInt(y);
-        let range_checked_right_side = if let DataTypeDefinition::SubRange { .. } = left_type {
+        let range_checked_right_side = if let DataTypeDefinition::SubRange { .. } = left_type.get_definition() {
             // there is a sub-range defined, so we need to wrap the right side into the check function if it exists
             self.annotations.get_hidden_function_call(right_statement)
         } else {
@@ -233,7 +233,7 @@ impl<'a, 'b> StatementCodeGenerator<'a, 'b> {
             //special case if we deal with a single bit, then we need to switch to a faked u1 type
             let right_type =
                 if let DataTypeDefinition::Integer { semantic_size: Some(typesystem::U1_SIZE), .. } =
-                    *right_type.get_type_information()
+                    *right_type.get_definition()
                 {
                     self.index.get_type_or_panic(typesystem::U1_TYPE)
                 } else {
@@ -249,7 +249,7 @@ impl<'a, 'b> StatementCodeGenerator<'a, 'b> {
                     exp_gen.generate_direct_access_index(
                         access,
                         index,
-                        right_type.get_type_information(),
+                        right_type,
                         left_type,
                     )
                 } else {
@@ -263,7 +263,7 @@ impl<'a, 'b> StatementCodeGenerator<'a, 'b> {
                         exp_gen.generate_direct_access_index(
                             access,
                             index,
-                            right_type.get_type_information(),
+                            right_type,
                             left_type,
                         )
                     } else {

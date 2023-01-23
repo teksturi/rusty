@@ -61,7 +61,7 @@ pub fn generate_data_types<'ink>(
         .index
         .get_types()
         .elements()
-        .filter(|(_, it)| !it.get_type_information().is_generic(generator.index))
+        .filter(|(_, it)| !it.get_definition().is_generic(generator.index))
         .map(|(a, b)| (a.as_str(), b))
         .collect::<Vec<(&str, &DataType)>>();
 
@@ -77,13 +77,13 @@ pub fn generate_data_types<'ink>(
     // first create all STUBs for struct types (empty structs)
     // and associate them in the llvm index
     for (name, user_type) in &types {
-        if let DataTypeDefinition::Struct { name: struct_name, .. } = user_type.get_type_information() {
+        if let DataTypeDefinition::Struct { container_name: struct_name, .. } = user_type.get_definition() {
             generator.types_index.associate_type(name, llvm.create_struct_stub(struct_name).into())?;
         }
     }
     // pou_types will always be struct
     for (name, user_type) in &pou_types {
-        if let DataTypeDefinition::Struct { name: struct_name, .. } = user_type.get_type_information() {
+        if let DataTypeDefinition::Struct { container_name: struct_name, .. } = user_type.get_definition() {
             generator.types_index.associate_pou_type(name, llvm.create_struct_stub(struct_name).into())?;
         }
     }
@@ -167,7 +167,7 @@ pub fn generate_data_types<'ink>(
 impl<'ink, 'b> DataTypeGenerator<'ink, 'b> {
     /// generates the members of an opaque struct and associates its initial values
     fn expand_opaque_types(&mut self, data_type: &DataType) -> Result<(), Diagnostic> {
-        let information = data_type.get_type_information();
+        let information = data_type.get_definition();
         if let DataTypeDefinition::Struct { source, .. } = information {
             let members = self
                 .index
@@ -195,7 +195,7 @@ impl<'ink, 'b> DataTypeGenerator<'ink, 'b> {
     /// Eagerly generates but does not associate nested array and referenced aliased types
     fn create_type(&mut self, name: &str, data_type: &DataType) -> Result<BasicTypeEnum<'ink>, Diagnostic> {
         self.debug.register_debug_type(name, data_type, self.index)?;
-        let information = data_type.get_type_information();
+        let information = data_type.get_definition();
         match information {
             DataTypeDefinition::Struct { source, .. } => match source {
                 StructSource::Pou(..) => self.types_index.get_associated_pou_type(data_type.get_name()),
@@ -212,10 +212,10 @@ impl<'ink, 'b> DataTypeGenerator<'ink, 'b> {
             DataTypeDefinition::Integer { size, .. } => {
                 get_llvm_int_type(self.llvm.context, *size, name).map(|it| it.into())
             }
-            DataTypeDefinition::Enum { name, referenced_type, .. } => {
+            DataTypeDefinition::Enum { referenced_type, .. } => {
                 let effective_type = self.index.get_effective_type_or_void_by_name(referenced_type);
-                if let DataTypeDefinition::Integer { .. } = effective_type.get_type_information() {
-                    self.create_type(name, effective_type)
+                if let DataTypeDefinition::Integer { .. } = effective_type.get_definition() {
+                    self.create_type(data_type.get_name(), effective_type)
                 } else {
                     Err(Diagnostic::invalid_type_nature(
                         effective_type.get_name(),
@@ -260,7 +260,7 @@ impl<'ink, 'b> DataTypeGenerator<'ink, 'b> {
         &mut self,
         data_type: &DataType,
     ) -> Result<Option<BasicValueEnum<'ink>>, Diagnostic> {
-        let information = data_type.get_type_information();
+        let information = data_type.get_definition();
         match information {
             DataTypeDefinition::Struct { source, .. } => {
                 let members = self.index.get_container_members(data_type.get_name());

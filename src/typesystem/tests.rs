@@ -150,7 +150,7 @@ fn get_bigger_size_string_test() {
     let string_1024 = typesystem::DataType {
         name: "STRING_1024".into(),
         initial_value: None,
-        information: typesystem::DataTypeDefinition::String {
+        definition: typesystem::DataTypeDefinition::String {
             size: TypeSize::LiteralInteger(1024),
             encoding: typesystem::StringEncoding::Utf8,
         },
@@ -163,7 +163,7 @@ fn get_bigger_size_string_test() {
     let string_30 = typesystem::DataType {
         name: "STRING_30".into(),
         initial_value: None,
-        information: typesystem::DataTypeDefinition::String {
+        definition: typesystem::DataTypeDefinition::String {
             size: TypeSize::LiteralInteger(30),
             encoding: typesystem::StringEncoding::Utf8,
         },
@@ -187,7 +187,7 @@ fn get_bigger_size_array_test_returns_first() {
     let array_1024 = typesystem::DataType {
         name: "ARRAY_1024".into(),
         initial_value: None,
-        information: typesystem::DataTypeDefinition::Array {
+        definition: typesystem::DataTypeDefinition::Array {
             inner_type_name: "INT".into(),
             dimensions: vec![Dimension {
                 start_offset: TypeSize::LiteralInteger(0),
@@ -202,7 +202,7 @@ fn get_bigger_size_array_test_returns_first() {
     let array_30 = typesystem::DataType {
         name: "ARRAY_30".into(),
         initial_value: None,
-        information: typesystem::DataTypeDefinition::Array {
+        definition: typesystem::DataTypeDefinition::Array {
             inner_type_name: "INT".into(),
             dimensions: vec![Dimension {
                 start_offset: TypeSize::LiteralInteger(1),
@@ -229,7 +229,7 @@ fn get_bigger_size_mixed_test_no_() {
     let string_1024 = typesystem::DataType {
         name: "STRING_1024".into(),
         initial_value: None,
-        information: typesystem::DataTypeDefinition::String {
+        definition: typesystem::DataTypeDefinition::String {
             size: TypeSize::LiteralInteger(1024),
             encoding: typesystem::StringEncoding::Utf8,
         },
@@ -241,7 +241,7 @@ fn get_bigger_size_mixed_test_no_() {
     let wstring_1024 = typesystem::DataType {
         name: "WSTRING_1024".into(),
         initial_value: None,
-        information: typesystem::DataTypeDefinition::String {
+        definition: typesystem::DataTypeDefinition::String {
             size: TypeSize::LiteralInteger(1024),
             encoding: typesystem::StringEncoding::Utf16,
         },
@@ -254,7 +254,7 @@ fn get_bigger_size_mixed_test_no_() {
     let array_string_30 = typesystem::DataType {
         name: "ARRAY_STRING_30".into(),
         initial_value: None,
-        information: typesystem::DataTypeDefinition::Array {
+        definition: typesystem::DataTypeDefinition::Array {
             inner_type_name: "STRING".into(),
             dimensions: vec![Dimension {
                 start_offset: TypeSize::LiteralInteger(1),
@@ -270,7 +270,7 @@ fn get_bigger_size_mixed_test_no_() {
     let array_30 = typesystem::DataType {
         name: "ARRAY_30".into(),
         initial_value: None,
-        information: typesystem::DataTypeDefinition::Array {
+        definition: typesystem::DataTypeDefinition::Array {
             inner_type_name: "INT".into(),
             dimensions: vec![Dimension {
                 start_offset: TypeSize::LiteralInteger(1),
@@ -286,7 +286,7 @@ fn get_bigger_size_mixed_test_no_() {
     let array_30_30 = typesystem::DataType {
         name: "ARRAY_30_30".into(),
         initial_value: None,
-        information: typesystem::DataTypeDefinition::Array {
+        definition: typesystem::DataTypeDefinition::Array {
             inner_type_name: "INT".into(),
             dimensions: vec![
                 Dimension {
@@ -532,7 +532,7 @@ fn array_size_single_dim_tests() {
     let array_20 = typesystem::DataType {
         name: "ARRAY_20".into(),
         initial_value: None,
-        information: typesystem::DataTypeDefinition::Array {
+        definition: typesystem::DataTypeDefinition::Array {
             inner_type_name: "INT".into(),
             dimensions: vec![Dimension {
                 start_offset: TypeSize::LiteralInteger(1),
@@ -545,7 +545,7 @@ fn array_size_single_dim_tests() {
         sub_range: None,
     };
     //the size of the array is 20*size(int)
-    assert_eq!(320, array_20.get_type_information().get_size_in_bits(&index));
+    assert_eq!(320, array_20.get_definition().get_size_in_bits(&index));
 }
 
 #[test]
@@ -555,7 +555,7 @@ fn array_size_multi_dim_tests() {
     let array_20_20 = typesystem::DataType {
         name: "ARRAY_20_20".into(),
         initial_value: None,
-        information: typesystem::DataTypeDefinition::Array {
+        definition: typesystem::DataTypeDefinition::Array {
             inner_type_name: "INT".into(),
             dimensions: vec![
                 Dimension {
@@ -574,7 +574,7 @@ fn array_size_multi_dim_tests() {
         sub_range: None,
     };
     //the size of the array is 20*size(int)
-    assert_eq!(6400, array_20_20.get_type_information().get_size_in_bits(&index));
+    assert_eq!(6400, array_20_20.get_definition().get_size_in_bits(&index));
 }
 
 #[test]
@@ -584,7 +584,7 @@ fn array_size_nested_tests() {
     let array_20 = typesystem::DataType {
         name: "ARRAY_20".into(),
         initial_value: None,
-        information: typesystem::DataTypeDefinition::Array {
+        definition: typesystem::DataTypeDefinition::Array {
             inner_type_name: "INT".into(),
             dimensions: vec![Dimension {
                 start_offset: TypeSize::LiteralInteger(1),
@@ -600,7 +600,7 @@ fn array_size_nested_tests() {
     let nested_array = typesystem::DataType {
         name: "NESTED_ARRAY".into(),
         initial_value: None,
-        information: typesystem::DataTypeDefinition::Array {
+        definition: typesystem::DataTypeDefinition::Array {
             inner_type_name: "ARRAY_20".into(),
             dimensions: vec![Dimension {
                 start_offset: TypeSize::LiteralInteger(1),
@@ -614,5 +614,5 @@ fn array_size_nested_tests() {
     };
 
     //the size of the array is 20*size(int)
-    assert_eq!(6400, nested_array.get_type_information().get_size_in_bits(&index));
+    assert_eq!(6400, nested_array.get_definition().get_size_in_bits(&index));
 }
