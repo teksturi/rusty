@@ -167,8 +167,8 @@ impl StatementValidator {
                         } else if l_effective_type != r_effective_type {
                             // invalid assignment
                             self.diagnostics.push(Diagnostic::invalid_assignment(
-                                r_effective_type.get_name(),
-                                l_effective_type.get_name(),
+                                &r_effective_type.get_display_name(context.index),
+                                &l_effective_type.get_display_name(context.index),
                                 statement.get_location(),
                             ));
                         }
@@ -176,8 +176,8 @@ impl StatementValidator {
                         // if we try to assign a character variable -> .. := char
                         // and didn't match the first if, left and right won't have the same type -> invalid assignment
                         self.diagnostics.push(Diagnostic::invalid_assignment(
-                            r_effective_type.get_name(),
-                            l_effective_type.get_name(),
+                            &r_effective_type.get_display_name(context.index),
+                            &l_effective_type.get_display_name(context.index),
                             statement.get_location(),
                         ));
                     }

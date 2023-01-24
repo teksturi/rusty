@@ -173,7 +173,7 @@ fn aliased_ranged_number_type_comparing_test() {
         r#"
         TYPE MyInt: INT(0..500); END_TYPE
         FUNCTION baz : INT
-            VAR x,y : MyInt; END_VAR;
+            VAR x, y : MyInt; END_VAR
 
             x = 3;
             x < y;

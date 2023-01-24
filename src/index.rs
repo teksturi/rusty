@@ -883,6 +883,13 @@ impl Index {
             let mut current = alias;
             let mut current_initial = alias.initial_value;
 
+            //grab the direct alias (if there is one)
+            let direct_alias = if let DataTypeDefinition::Alias { referenced_type } = current.get_definition() {
+                Some(referenced_type.clone())
+            }else{
+                None
+            };
+            //look for the first initial value in the alias chain
             while let DataTypeDefinition::Alias { referenced_type, .. } = current.get_definition() {
                 current = self.type_index.find_type(referenced_type).unwrap_or(&type_index.void_type);
                 current_initial = current_initial.or(current.initial_value);
@@ -908,6 +915,7 @@ impl Index {
                     alias.nature,
                     current_initial,
                     alias.location.clone(),
+                    direct_alias
                 ),
             );
         }
@@ -1503,10 +1511,9 @@ impl Index {
         &self,
         range_type: &DataType,
     ) -> Option<&ImplementationIndexEntry> {
-        if let (Some(alias), Some(sub_range)) = (range_type.alias_of.as_ref(), range_type.sub_range.as_ref())
-        {
+        if let DataTypeDefinition::SubRange { referenced_type, .. } = &range_type.definition {
             //traverse to the primitive type
-            self.find_effective_type_by_name(alias)
+            self.find_effective_type_by_name(referenced_type)
                 .and_then(|info| self.find_range_check_implementation_for(info))
         } else {
             match &range_type.definition {

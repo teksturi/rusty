@@ -424,8 +424,8 @@ impl Validator {
             & !typesystem::is_same_type_class(left_type_info, right_type_info, index)
         {
             self.stmt_validator.diagnostics.push(Diagnostic::invalid_assignment(
-                right_type.get_name(),
-                left_type.get_name(),
+                &right_type.get_display_name(index),
+                &left_type.get_display_name(index),
                 location,
             ))
         }

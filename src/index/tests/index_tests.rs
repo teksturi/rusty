@@ -517,6 +517,27 @@ fn get_type_retrieves_directly_registered_type() {
 }
 
 #[test]
+fn alias_types_are_properly_resolved() {
+    let (_, index) = index(
+        r"
+            TYPE MyAlias : INT;  END_TYPE
+            TYPE MySecondAlias : MyAlias;  END_TYPE
+            TYPE MyArray : ARRAY[0..10] OF INT;  END_TYPE
+            TYPE MyArrayAlias : MyArray; END_TYPE
+        ",
+    );
+
+    let my_alias = index.get_type("MyAlias").unwrap();
+    assert_eq!(("MyAlias", Some("INT")), (my_alias.get_name(), my_alias.alias_of.as_deref()));
+
+    let my_alias = index.get_type("MySecondAlias").unwrap();
+    assert_eq!(("MySecondAlias", Some("MyAlias")), (my_alias.get_name(), my_alias.alias_of.as_deref()));
+
+    let my_alias = index.get_type("MyArrayAlias").unwrap();
+    assert_eq!(("MyArrayAlias", Some("MyArray")), (my_alias.get_name(), my_alias.alias_of.as_deref()));
+}
+
+#[test]
 fn find_effective_type_finds_the_inner_effective_type() {
     let (_, index) = index(
         r"

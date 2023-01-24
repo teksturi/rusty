@@ -113,8 +113,6 @@ pub struct DataType {
     pub location: SymbolLocation,
     /// the name of the original type this is aliasing
     pub alias_of: Option<String>,
-    /// an optional range limitation of the type (for sub-range types)
-    pub sub_range: Option<Range<AstStatement>>,
 }
 
 impl DataType {
@@ -132,7 +130,6 @@ impl DataType {
             location,
             definition: information,
             alias_of: None,
-            sub_range: None,
         }
     }
 
@@ -176,6 +173,7 @@ impl DataType {
         nature: TypeNature,
         initial_value: Option<ConstId>,
         location: SymbolLocation,
+        alias_of: Option<String>
     ) -> DataType {
         DataType {
             name: new_name.clone(),
@@ -183,8 +181,7 @@ impl DataType {
             definition: self.definition.clone_with_new_name(new_name),
             nature,
             location,
-            alias_of: Some(self.get_name().to_string()),
-            sub_range: self.sub_range.clone(),
+            alias_of
         }
     }
 
@@ -609,7 +606,6 @@ macro_rules! int_type {
             nature: $nature,
             location: SymbolLocation::internal(),
             alias_of: None,
-            sub_range: None,
         }
     };
 }

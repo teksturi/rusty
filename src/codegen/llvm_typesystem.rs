@@ -187,8 +187,8 @@ pub fn cast_if_needed<'ctx>(
                         || (*lsize == 16 && matches!(encoding, StringEncoding::Utf8))
                     {
                         return Err(Diagnostic::casting_error(
-                            value_data_type.get_name(),
-                            target_data_type.get_name(),
+                            &value_data_type.get_display_name(index),
+                            &target_data_type.get_display_name(index),
                             statement.get_location(),
                         ));
                     };
@@ -210,8 +210,8 @@ pub fn cast_if_needed<'ctx>(
                     )
                     .into()),
                 _ => Err(Diagnostic::casting_error(
-                    value_data_type.get_name(),
-                    target_data_type.get_name(),
+                    &value_data_type.get_display_name(index),
+                    &target_data_type.get_display_name(index),
                     statement.get_location(),
                 )),
             }
@@ -256,8 +256,8 @@ pub fn cast_if_needed<'ctx>(
                 }
             }
             _ => Err(Diagnostic::casting_error(
-                value_data_type.get_name(),
-                target_data_type.get_name(),
+                &value_data_type.get_display_name(index),
+                &target_data_type.get_display_name(index),
                 statement.get_location(),
             )),
         },
@@ -265,16 +265,16 @@ pub fn cast_if_needed<'ctx>(
             DataTypeDefinition::String { encoding: value_encoding, .. } => {
                 if encoding != value_encoding {
                     return Err(Diagnostic::casting_error(
-                        value_data_type.get_name(),
-                        target_data_type.get_name(),
+                        &value_data_type.get_display_name(index),
+                        &target_data_type.get_display_name(index),
                         statement.get_location(),
                     ));
                 }
                 Ok(value)
             }
             _ => Err(Diagnostic::casting_error(
-                value_data_type.get_name(),
-                target_data_type.get_name(),
+                &value_data_type.get_display_name(index),
+                &target_data_type.get_display_name(index),
                 statement.get_location(),
             )),
         },
@@ -298,8 +298,8 @@ pub fn cast_if_needed<'ctx>(
                 }
             }
             _ => Err(Diagnostic::casting_error(
-                value_data_type.get_name(),
-                target_data_type.get_name(),
+                &value_data_type.get_display_name(index),
+                &target_data_type.get_display_name(index),
                 statement.get_location(),
             )),
         },

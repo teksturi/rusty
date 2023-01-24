@@ -406,7 +406,7 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
                 Ok(reference)
             }
         } else {
-            Err(Diagnostic::casting_error(access_type.get_name(), "Integer Type", index.get_location()))
+            Err(Diagnostic::casting_error(&access_type.get_display_name(self.index), "Integer Type", index.get_location()))
         }
     }
 
