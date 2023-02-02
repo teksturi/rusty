@@ -61,9 +61,12 @@ pub fn generate_data_types<'ink>(
         .index
         .get_types()
         .elements()
-        .filter(|(_, it)| !it.get_definition().is_generic(generator.index))
+        .filter(|(_, it)| !it.get_definition().is_generic(generator.index)) //skip generic types
         .map(|(a, b)| (a.as_str(), b))
         .collect::<Vec<(&str, &DataType)>>();
+
+    // let aliased_types = types.iter().filter(|(_, it)| it.alias_of.is_some()).collect::<Vec<_>>();
+    // let types = types.iter().filter(|(_, it)| it.alias_of.is_none()).collect::<Vec<_>>();
 
     let pou_types = generator
         .index
@@ -99,6 +102,16 @@ pub fn generate_data_types<'ink>(
         let gen_type = generator.create_type(name, user_type)?;
         generator.types_index.associate_pou_type(name, gen_type)?
     }
+
+    //now register aliased types
+    // for (name, aliased_type) in &aliased_types {
+    //     let real_type = aliased_type.resolve(index);
+    //     if let Ok(gen_type) = generator.types_index.get_associated_type(real_type.get_name()) {
+    //         generator.types_index.associate_type(name, gen_type)?;
+    //     }
+    // }
+
+
 
     // Combine the types and pou_types into a single Vector
     let mut types_to_init = VecDeque::new();
@@ -195,6 +208,7 @@ impl<'ink, 'b> DataTypeGenerator<'ink, 'b> {
     /// Eagerly generates but does not associate nested array and referenced aliased types
     fn create_type(&mut self, name: &str, data_type: &DataType) -> Result<BasicTypeEnum<'ink>, Diagnostic> {
         self.debug.register_debug_type(name, data_type, self.index)?;
+
         let information = data_type.get_definition();
         match information {
             DataTypeDefinition::Struct { source, .. } => match source {

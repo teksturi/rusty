@@ -1,13 +1,14 @@
 use core::panic;
 
 use insta::assert_snapshot;
+use serde::ser::Impossible;
 
 use crate::{
     ast::{self, flatten_expression_list, AstStatement, DataType, Pou, UserTypeDeclaration},
     index::{Index, VariableType},
     lexer::IdProvider,
     resolver::{AnnotationMap, AnnotationMapImpl, StatementAnnotation},
-    test_utils::tests::{annotate_with_ids, codegen, index_with_ids},
+    test_utils::tests::{annotate_with_ids, codegen, index_with_ids, index},
     typesystem::{
         DataTypeDefinition, BOOL_TYPE, BYTE_TYPE, DINT_TYPE, DWORD_TYPE, INT_TYPE, LINT_TYPE, LREAL_TYPE,
         LWORD_TYPE, REAL_TYPE, SINT_TYPE, UINT_TYPE, USINT_TYPE, VOID_TYPE, WORD_TYPE,
@@ -51,6 +52,42 @@ fn binary_expressions_resolves_types() {
 }
 
 #[test]
+fn binary_expressions_resolves_ranged_types() {
+    let id_provider = IdProvider::default();
+    let (unit, index) = index_with_ids(
+        r#"
+        FUNCTION baz : INT
+            VAR xx, yy: INT16; END_VAR
+            VAR x,y : INT(0..500); END_VAR
+            xx < yy;
+            x < y;
+        END_FUNCTION
+    "#,
+        id_provider.clone()
+    );
+    let (annotations, _) = TypeAnnotator::visit_unit(&index, &unit, id_provider);
+    let statements = &unit.implementations[0].statements;
+
+    let types: Vec<_> =
+        statements.iter().map(|s| {
+            if let AstStatement::BinaryExpression { left, right, ..} = s {
+                format!("left: {}({}), right: {}({})", 
+                    annotations.get_type_or_void(left, &index).get_name(), annotations.get_hint_or_void(left, &index).get_name(),
+                    annotations.get_type_or_void(right, &index).get_name(), annotations.get_hint_or_void(right, &index).get_name(),
+                    )
+            }else{
+                unreachable!("expected binary expression, found: {s:#?}")
+            }
+        }).collect::<Vec<_>>();
+
+    assert_eq!(vec![
+        "left: INT16(DINT), right: INT16(DINT)".to_string(),
+        "left: __baz_x(DINT), right: __baz_y(DINT)".to_string(),
+    ], types);
+
+}
+
+#[test]
 fn binary_expressions_resolves_types_for_mixed_signed_ints() {
     let id_provider = IdProvider::default();
     let (unit, mut index) = index_with_ids(
@@ -68,6 +105,41 @@ fn binary_expressions_resolves_types_for_mixed_signed_ints() {
         assert_type_and_hint!(&annotations, &index, &statements[0], DINT_TYPE, None);
     } else {
         unreachable!()
+    }
+}
+
+#[test]
+fn compare_expressions_resolves_types_int_types() {
+    let id_provider = IdProvider::default();
+    let (unit, mut index) = index_with_ids(
+        "PROGRAM PRG
+            VAR a : INT;    END_VAR
+            VAR b : SINT;   END_VAR
+            a < 7;
+            a < b;
+        END_PROGRAM",
+        id_provider.clone(),
+    );
+    let annotations = annotate_with_ids(&unit, &mut index, id_provider);
+    // the compare exressions should be performed on DINTS (INT32)
+    let statements = &unit.implementations[0].statements;
+    {
+        if let AstStatement::BinaryExpression { left, right, .. } = &statements[0] {
+            assert_type_and_hint!(&annotations, &index, left, INT_TYPE, Some(DINT_TYPE));
+            assert_type_and_hint!(&annotations, &index, right, DINT_TYPE, None);
+            assert_type_and_hint!(&annotations, &index, &statements[0], BOOL_TYPE, None);
+        } else {
+            unreachable!()
+        }
+    }
+    {
+        if let AstStatement::BinaryExpression { left, right, .. } = &statements[1] {
+            assert_type_and_hint!(&annotations, &index, left, INT_TYPE, Some(DINT_TYPE));
+            assert_type_and_hint!(&annotations, &index, right, SINT_TYPE, Some(DINT_TYPE));
+            assert_type_and_hint!(&annotations, &index, &statements[1], BOOL_TYPE, None);
+        } else {
+            unreachable!()
+        }
     }
 }
 
@@ -1791,18 +1863,20 @@ fn global_enums_type_resolving2() {
                 .get_constant_statement(it.initial_value.as_ref().unwrap())
                 .unwrap();
             (
+                it.get_name(),
                 annotations.get_type(const_exp, &index).map(|it| it.get_name()),
                 annotations.get_type_hint(const_exp, &index).map(|it| it.get_name()),
             )
         })
-        .collect::<Vec<(Option<&str>, Option<&str>)>>();
+        .collect::<Vec<(&str, Option<&str>, Option<&str>)>>();
 
     assert_eq!(
+        //  name, init-value-type-annotation, init-value-type-hint annotation
         vec![
-            (Some("DINT"), Some("MyEnum")),
-            (Some("DINT"), Some("MyEnum")),
-            (Some("DINT"), Some("MyEnum")),
-            (Some("DINT"), Some("MyEnum")),
+            ("zero", Some("DINT"), Some("MyEnum")), //DINT because ":= 0"
+            ("aa", Some("MyEnum"), Some("MyEnum")), //myEnum because ":= MyEnum#zero + 1"
+            ("bb", Some("DINT"), Some("MyEnum")),   //DINT because ":= 7"
+            ("cc", Some("MyEnum"), Some("MyEnum")), //MyEnum because ":= MyEnum#cc + 1"
         ],
         initalizer_types
     );
@@ -2830,10 +2904,7 @@ fn address_of_is_annotated_correctly() {
     let s = &unit.implementations[0].statements[0];
     if let Some(&StatementAnnotation::Value { resulting_type }) = annotations.get(s).as_ref() {
         assert_eq!(
-            Some(&DataTypeDefinition::Pointer {
-                auto_deref: false,
-                inner_type_name: "INT".to_string(),
-            }),
+            Some(&DataTypeDefinition::Pointer { auto_deref: false, inner_type_name: "INT".to_string() }),
             index.find_effective_type_info(resulting_type),
         );
     } else {

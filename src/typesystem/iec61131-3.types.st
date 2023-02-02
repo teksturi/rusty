@@ -14,7 +14,7 @@ TYPE {nature_bit}       LWORD   : UINT64; END_TYPE
 TYPE {nature_signed}    LINT    : INT64;  END_TYPE
 TYPE {nature_unsigned}  ULINT   : UINT64; END_TYPE
 
-TYPE {nature_date}     DATE   : INT64; END_TYPE
+TYPE {nature_date}      DATE   : INT64; END_TYPE
 TYPE {nature_date}      LDATE  : DATE;  END_TYPE
 TYPE {nature_date}      D      : DATE;  END_TYPE
 TYPE {nature_date}      LD     : DATE; END_TYPE

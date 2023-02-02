@@ -248,9 +248,7 @@ fn visit_implementation(
         let datatype = typesystem::DataType::new(
             implementation.name.to_string(),
             None,
-            DataTypeDefinition::Alias {
-                referenced_type: implementation.type_name.clone(),
-            },
+            DataTypeDefinition::Alias { referenced_type: implementation.type_name.clone() },
             TypeNature::Derived,
             symbol_location_factory.create_symbol_location(&implementation.name_location),
         );
@@ -276,10 +274,7 @@ fn register_byref_pointer_type_for(index: &mut Index, inner_type_name: &str) -> 
         index.register_type(typesystem::DataType::new(
             type_name.clone(),
             None,
-            DataTypeDefinition::Pointer {
-                inner_type_name: inner_type_name.to_string(),
-                auto_deref: true,
-            },
+            DataTypeDefinition::Pointer { inner_type_name: inner_type_name.to_string(), auto_deref: true },
             TypeNature::Any,
             SymbolLocation::internal(),
         ));
@@ -459,27 +454,29 @@ fn visit_data_type(
         }
 
         DataType::SubRangeType { name: Some(name), referenced_type, bounds } => {
-            let information = if let Some(AstStatement::RangeStatement { start, end, .. }) = bounds {
-                DataTypeDefinition::SubRange {
-                    referenced_type: referenced_type.into(),
-                    sub_range: (*start.clone()..*end.clone()),
+            let sub_range = bounds.as_ref().and_then(|bounds| {
+                if let AstStatement::RangeStatement { start, end, .. } = bounds {
+                    Some(*start.clone()..*end.clone())
+                } else {
+                    None
                 }
-            } else {
-                DataTypeDefinition::Alias { referenced_type: referenced_type.into() }
-            };
+            });
 
+            let information = DataTypeDefinition::Alias { referenced_type: referenced_type.into() };
             let init = index.get_mut_const_expressions().maybe_add_constant_expression(
                 type_declaration.initializer.clone(),
                 name,
                 scope.clone(),
             );
-            index.register_type(typesystem::DataType::new(
-                name.to_string(),
-                init,
-                information,
-                type_declaration.nature_override.unwrap_or(TypeNature::Int),
-                symbol_location_factory.create_symbol_location(&type_declaration.location),
-            ));
+            index.register_type(typesystem::DataType {
+                name: name.to_string(),
+                initial_value: init,
+                definition: information,
+                nature: type_declaration.nature_override.unwrap_or(TypeNature::Int),
+                location: symbol_location_factory.create_symbol_location(&type_declaration.location),
+                alias_of: Some(referenced_type.to_string()),
+                sub_range,
+            });
         }
         DataType::ArrayType { name: Some(name), referenced_type, bounds } => {
             let dimensions: Result<Vec<Dimension>, Diagnostic> = bounds
@@ -510,10 +507,8 @@ fn visit_data_type(
                 .collect();
             let dimensions = dimensions.unwrap(); //TODO hmm we need to talk about all this unwrapping :-/
             let referenced_type_name = referenced_type.get_name().expect("named datatype");
-            let information = DataTypeDefinition::Array {
-                inner_type_name: referenced_type_name.to_string(),
-                dimensions,
-            };
+            let information =
+                DataTypeDefinition::Array { inner_type_name: referenced_type_name.to_string(), dimensions };
 
             let init1 = index.get_mut_const_expressions().maybe_add_constant_expression(
                 type_declaration.initializer.clone(),
@@ -550,10 +545,8 @@ fn visit_data_type(
         }
         DataType::PointerType { name: Some(name), referenced_type, .. } => {
             let inner_type_name = referenced_type.get_name().expect("named datatype");
-            let information = DataTypeDefinition::Pointer {
-                inner_type_name: inner_type_name.into(),
-                auto_deref: false,
-            };
+            let information =
+                DataTypeDefinition::Pointer { inner_type_name: inner_type_name.into(), auto_deref: false };
 
             let init = index.get_mut_const_expressions().maybe_add_constant_expression(
                 type_declaration.initializer.clone(),
@@ -627,10 +620,8 @@ fn visit_data_type(
         }
         DataType::VarArgs { .. } => {} //Varargs are not indexed,
         DataType::GenericType { name, generic_symbol, nature } => {
-            let information = DataTypeDefinition::Generic {
-                generic_symbol: generic_symbol.clone(),
-                nature: *nature,
-            };
+            let information =
+                DataTypeDefinition::Generic { generic_symbol: generic_symbol.clone(), nature: *nature };
             index.register_type(typesystem::DataType::new(
                 name.to_string(),
                 None,

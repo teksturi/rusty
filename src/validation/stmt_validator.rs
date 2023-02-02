@@ -120,9 +120,9 @@ impl StatementValidator {
 
                     let l_effective_type = context
                         .index
-                        .get_effective_type_or_void_by_name(l_resulting_type);
+                        .get_effective_type_or_void_by_name(l_resulting_type).resolve(context.index);
                     let r_effective_type =
-                        context.ast_annotation.get_type_or_void(right, context.index);
+                        context.ast_annotation.get_type_or_void(right, context.index).resolve(context.index);
 
                     //check if Datatype can hold a Pointer (u64)
                     if r_effective_type.get_definition().is_pointer()

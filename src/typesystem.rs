@@ -111,8 +111,10 @@ pub struct DataType {
     pub nature: TypeNature,
     /// the location of the type's declaration
     pub location: SymbolLocation,
-    /// the name of the original type this is aliasing
+    /// optional name of the original type this is aliasing
     pub alias_of: Option<String>,
+    /// optional sub_range limitation for this data-type
+    pub sub_range: Option<Range<AstStatement>>,
 }
 
 impl DataType {
@@ -123,14 +125,7 @@ impl DataType {
         nature: TypeNature,
         location: SymbolLocation,
     ) -> Self {
-        Self {
-            name,
-            initial_value,
-            nature,
-            location,
-            definition: information,
-            alias_of: None,
-        }
+        Self { name, initial_value, nature, location, definition: information, alias_of: None, sub_range: None }
     }
 
     pub fn get_name(&self) -> &str {
@@ -155,6 +150,10 @@ impl DataType {
 
     pub fn is_char(&self) -> bool {
         self.has_nature(TypeNature::Char)
+            && matches!(
+                self.definition,
+                DataTypeDefinition::Integer { size: 8, .. } | DataTypeDefinition::Integer { size: 16, .. }
+            )
     }
 
     /// returns true if this type is an internal, auto-generated type
@@ -173,7 +172,7 @@ impl DataType {
         nature: TypeNature,
         initial_value: Option<ConstId>,
         location: SymbolLocation,
-        alias_of: Option<String>
+        alias_of: Option<String>,
     ) -> DataType {
         DataType {
             name: new_name.clone(),
@@ -181,7 +180,8 @@ impl DataType {
             definition: self.definition.clone_with_new_name(new_name),
             nature,
             location,
-            alias_of
+            alias_of,
+            sub_range: self.sub_range.clone()
         }
     }
 
@@ -203,14 +203,27 @@ impl DataType {
                 let inner_type_name = index.get_type_or_void(inner_type_name).get_display_name(index);
                 format!("ARRAY{} OF {inner_type_name}", dimensions_strings.join(","))
             }
-            DataTypeDefinition::Pointer { inner_type_name, .. } => {
+            DataTypeDefinition::Pointer { inner_type_name, auto_deref: false, .. } => {
                 let inner_type_name = index.get_type_or_void(inner_type_name).get_display_name(index);
                 format!("REF_TO {inner_type_name}")
+            }
+            DataTypeDefinition::Pointer { inner_type_name, auto_deref: true, .. } => {
+                index.get_type_or_void(inner_type_name).get_display_name(index)
             }
             DataTypeDefinition::String { encoding: StringEncoding::Utf8, .. } => STRING_TYPE.to_string(),
             DataTypeDefinition::String { encoding: StringEncoding::Utf16, .. } => WSTRING_TYPE.to_string(),
             _ => self.get_name().to_string(),
         }
+    }
+
+    /**
+     * resolves all alias realtionships of this type return the most inner type
+     * that is not aliased
+     */
+    pub fn resolve<'idx>(&'idx self, index: &'idx Index) -> &'idx Self {
+        self.alias_of
+            .as_deref()
+            .map_or(self, |alias| index.get_effective_type_or_void_by_name(alias).resolve(index))
     }
 }
 
@@ -606,6 +619,7 @@ macro_rules! int_type {
             nature: $nature,
             location: SymbolLocation::internal(),
             alias_of: None,
+            sub_range: None
         }
     };
 }

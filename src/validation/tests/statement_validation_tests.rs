@@ -703,11 +703,11 @@ fn function_call_parameter_validation() {
             Diagnostic::invalid_parameter_type((360..364).into()),
             Diagnostic::invalid_parameter_type((366..370).into()),
             Diagnostic::invalid_assignment("STRING", "DINT", (425..439).into()),
-            Diagnostic::invalid_assignment("__main_var3", "DINT", (441..455).into()),
+            Diagnostic::invalid_assignment("REF_TO WSTRING", "DINT", (441..455).into()),
             Diagnostic::incompatible_type_size("DINT", 32, "hold a", (441..455).into()),
             Diagnostic::invalid_assignment("REAL", "DINT", (457..472).into()),
             Diagnostic::invalid_assignment("STRING", "DINT", (508..512).into()),
-            Diagnostic::invalid_assignment("__main_var3", "DINT", (514..518).into()),
+            Diagnostic::invalid_assignment("REF_TO WSTRING", "DINT", (514..518).into()),
             Diagnostic::invalid_assignment("REAL", "DINT", (520..524).into()),
         ]
     );

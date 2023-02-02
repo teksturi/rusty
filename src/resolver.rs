@@ -23,7 +23,7 @@ use crate::{
     typesystem::{
         self, get_bigger_type, DataTypeDefinition, StringEncoding, BOOL_TYPE, BYTE_TYPE, DATE_AND_TIME_TYPE,
         DATE_TYPE, DINT_TYPE, DWORD_TYPE, LINT_TYPE, LREAL_TYPE, LWORD_TYPE, REAL_TYPE, TIME_OF_DAY_TYPE,
-        TIME_TYPE, VOID_TYPE, WORD_TYPE,
+        TIME_TYPE, VOID_TYPE, WORD_TYPE, 
     },
 };
 
@@ -531,7 +531,7 @@ impl<'i> TypeAnnotator<'i> {
     ) {
         if let Some(expected_type) = self.annotation_map.get_type(annotated_left_side, self.index).cloned() {
             // for assignments on SubRanges check if there are range type check functions
-            if let DataTypeDefinition::SubRange { sub_range, .. } = expected_type.get_definition() {
+            if let crate::typesystem::DataType { sub_range: Some(sub_range), ..} = &expected_type {
                 if let Some(statement) = self
                     .index
                     .find_range_check_implementation_for(&expected_type)

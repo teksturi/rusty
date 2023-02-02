@@ -12,17 +12,17 @@ source_filename = "file1.st"
 define i16 @main() !dbg !8 {
 entry:
   %main = alloca i16, align 2, !dbg !11
-  call void @llvm.dbg.declare(metadata i16* %main, metadata !12, metadata !DIExpression()), !dbg !14
+  call void @llvm.dbg.declare(metadata i16* %main, metadata !12, metadata !DIExpression()), !dbg !16
   store i16 0, i16* %main, align 2, !dbg !11
   call void @mainProg(%mainProg* @mainProg_instance), !dbg !11
   %main_ret = load i16, i16* %main, align 2, !dbg !11
   ret i16 %main_ret, !dbg !11
 }
 
-define void @mainProg(%mainProg* %0) !dbg !15 {
+define void @mainProg(%mainProg* %0) !dbg !17 {
 entry:
-  call void @llvm.dbg.declare(metadata %mainProg* %0, metadata !16, metadata !DIExpression()), !dbg !17
-  ret void, !dbg !17
+  call void @llvm.dbg.declare(metadata %mainProg* %0, metadata !18, metadata !DIExpression()), !dbg !19
+  ret void, !dbg !19
 }
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable willreturn
@@ -45,9 +45,11 @@ attributes #0 = { nofree nosync nounwind readnone speculatable willreturn }
 !10 = !{null}
 !11 = !DILocation(line: 10, column: 4, scope: !8)
 !12 = !DILocalVariable(name: "main", scope: !8, file: !6, line: 2, type: !13, align: 16)
-!13 = !DIBasicType(name: "int", size: 16, encoding: DW_ATE_signed, flags: DIFlagPublic)
-!14 = !DILocation(line: 2, column: 13, scope: !8)
-!15 = distinct !DISubprogram(name: "mainProg", linkageName: "mainProg", scope: !2, file: !2, line: 2, type: !9, scopeLine: 5, flags: DIFlagPublic, spFlags: DISPFlagDefinition, unit: !5, retainedNodes: !4)
-!16 = !DILocalVariable(name: "mainProg", scope: !15, file: !2, line: 2, type: !3)
-!17 = !DILocation(line: 5, column: 4, scope: !15)
+!13 = !DIDerivedType(tag: DW_TAG_typedef, name: "int", scope: !14, file: !14, line: 6, baseType: !15, align: 16)
+!14 = !DIFile(filename: "<internal>", directory: "")
+!15 = !DIBasicType(name: "int16", size: 16, encoding: DW_ATE_signed, flags: DIFlagPublic)
+!16 = !DILocation(line: 2, column: 13, scope: !8)
+!17 = distinct !DISubprogram(name: "mainProg", linkageName: "mainProg", scope: !2, file: !2, line: 2, type: !9, scopeLine: 5, flags: DIFlagPublic, spFlags: DISPFlagDefinition, unit: !5, retainedNodes: !4)
+!18 = !DILocalVariable(name: "mainProg", scope: !17, file: !2, line: 2, type: !3)
+!19 = !DILocation(line: 5, column: 4, scope: !17)
 

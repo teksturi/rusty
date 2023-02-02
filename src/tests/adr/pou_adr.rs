@@ -58,8 +58,8 @@ fn programs_state_is_stored_in_a_struct() {
         DataType {
             name: "main_prg",
             initial_value: None,
-            information: Struct {
-                name: "main_prg",
+            definition: Struct {
+                container_name: "main_prg",
                 member_names: [
                     "i",
                     "io",
@@ -79,6 +79,7 @@ fn programs_state_is_stored_in_a_struct() {
                 },
             },
             alias_of: None,
+            sub_range: None,
         },
     )
     "###);

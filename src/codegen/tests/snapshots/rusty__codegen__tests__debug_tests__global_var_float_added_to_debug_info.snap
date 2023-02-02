@@ -6,18 +6,21 @@ expression: codegen.0
 source_filename = "main"
 
 @a = global float 0.000000e+00, !dbg !0
-@b = global double 0.000000e+00, !dbg !4
+@b = global double 0.000000e+00, !dbg !6
 
-!llvm.dbg.cu = !{!7}
+!llvm.dbg.cu = !{!10}
 
 !0 = !DIGlobalVariableExpression(var: !1, expr: !DIExpression())
 !1 = distinct !DIGlobalVariable(name: "a", scope: !2, file: !2, line: 3, type: !3, isLocal: false, isDefinition: true)
 !2 = !DIFile(filename: "main", directory: "")
-!3 = !DIBasicType(name: "real", size: 32, encoding: DW_ATE_float, flags: DIFlagPublic)
-!4 = !DIGlobalVariableExpression(var: !5, expr: !DIExpression())
-!5 = distinct !DIGlobalVariable(name: "b", scope: !2, file: !2, line: 4, type: !6, isLocal: false, isDefinition: true)
-!6 = !DIBasicType(name: "lreal", size: 64, encoding: DW_ATE_float, flags: DIFlagPublic)
-!7 = distinct !DICompileUnit(language: DW_LANG_C, file: !2, producer: "RuSTy Structured text Compiler", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, enums: !8, globals: !9, splitDebugInlining: false)
-!8 = !{}
-!9 = !{!0, !4}
+!3 = !DIDerivedType(tag: DW_TAG_typedef, name: "real", scope: !4, file: !4, line: 37, baseType: !5, align: 32)
+!4 = !DIFile(filename: "<internal>", directory: "")
+!5 = !DIBasicType(name: "REAL32", size: 32, encoding: DW_ATE_float, flags: DIFlagPublic)
+!6 = !DIGlobalVariableExpression(var: !7, expr: !DIExpression())
+!7 = distinct !DIGlobalVariable(name: "b", scope: !2, file: !2, line: 4, type: !8, isLocal: false, isDefinition: true)
+!8 = !DIDerivedType(tag: DW_TAG_typedef, name: "lreal", scope: !4, file: !4, line: 38, baseType: !9, align: 64)
+!9 = !DIBasicType(name: "REAL64", size: 64, encoding: DW_ATE_float, flags: DIFlagPublic)
+!10 = distinct !DICompileUnit(language: DW_LANG_C, file: !2, producer: "RuSTy Structured text Compiler", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, enums: !11, globals: !12, splitDebugInlining: false)
+!11 = !{}
+!12 = !{!0, !6}
 

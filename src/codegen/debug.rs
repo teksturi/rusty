@@ -631,44 +631,63 @@ impl<'ink> Debug<'ink> for DebugBuilder<'ink> {
             let size = type_info.get_size(index);
             let alignment = type_info.get_alignment(index);
             let location = &datatype.location;
-            match type_info {
-                DataTypeDefinition::Struct { member_names, .. } => {
-                    self.create_struct_type(datatype.get_name(), member_names.as_slice(), index, location)
+            if let Some(alias) = datatype.alias_of.as_deref() {
+                self.create_typedef_type(name, alias, index, location)
+            } else {
+                match type_info {
+                    DataTypeDefinition::Struct { member_names, .. } => {
+                        self.create_struct_type(name, member_names.as_slice(), index, location)
+                    }
+                    DataTypeDefinition::Array { inner_type_name, dimensions, .. } => self.create_array_type(
+                        name,
+                        inner_type_name,
+                        dimensions,
+                        size,
+                        alignment,
+                        index,
+                    ),
+                    DataTypeDefinition::Pointer { inner_type_name, .. } => {
+                        self.create_pointer_type(name, inner_type_name, size, alignment, index)
+                    }
+                    DataTypeDefinition::Integer { signed, size, .. } => {
+                        let encoding = if type_info.is_bool() {
+                            DebugEncoding::DW_ATE_boolean
+                        } else if datatype.is_char() {
+                            DebugEncoding::DW_ATE_UTF
+                        } else {
+                            match *signed {
+                                true => DebugEncoding::DW_ATE_signed,
+                                false => DebugEncoding::DW_ATE_unsigned,
+                            }
+                        };
+                        self.create_basic_type(name, *size as u64, encoding, location)
+                    }
+                    DataTypeDefinition::Float { size, .. } => self.create_basic_type(
+                        datatype.get_name(),
+                        *size as u64,
+                        DebugEncoding::DW_ATE_float,
+                        location,
+                    ),
+                    DataTypeDefinition::String { size: string_size, encoding, .. } => {
+                        let length = string_size
+                            .as_int_value(index)
+                            .map_err(|err| Diagnostic::codegen_error(&err, SourceRange::undefined()))?;
+                        self.create_string_type(
+                            name,
+                            length,
+                            *encoding,
+                            size,
+                            alignment,
+                            index,
+                        )
+                    }
+                    DataTypeDefinition::Alias { referenced_type }
+                    | DataTypeDefinition::Enum { referenced_type, .. } => {
+                        self.create_typedef_type(name, referenced_type, index, location)
+                    }
+                    // Other types are just derived basic types
+                    _ => Ok(()),
                 }
-                DataTypeDefinition::Array { inner_type_name, dimensions, .. } => {
-                    self.create_array_type(datatype.get_name(), inner_type_name, dimensions, size, alignment, index)
-                }
-                DataTypeDefinition::Pointer { inner_type_name, .. } => {
-                    self.create_pointer_type(datatype.get_name(), inner_type_name, size, alignment, index)
-                }
-                DataTypeDefinition::Integer { signed, size, .. } => {
-                    let encoding = if type_info.is_bool() {
-                        DebugEncoding::DW_ATE_boolean
-                    } else if datatype.is_char() {
-                        DebugEncoding::DW_ATE_UTF
-                    } else {
-                        match *signed {
-                            true => DebugEncoding::DW_ATE_signed,
-                            false => DebugEncoding::DW_ATE_unsigned,
-                        }
-                    };
-                    self.create_basic_type(datatype.get_name(), *size as u64, encoding, location)
-                }
-                DataTypeDefinition::Float { size, .. } => {
-                    self.create_basic_type(datatype.get_name(), *size as u64, DebugEncoding::DW_ATE_float, location)
-                }
-                DataTypeDefinition::String { size: string_size, encoding, .. } => {
-                    let length = string_size
-                        .as_int_value(index)
-                        .map_err(|err| Diagnostic::codegen_error(&err, SourceRange::undefined()))?;
-                    self.create_string_type(datatype.get_name(), length, *encoding, size, alignment, index)
-                }
-                DataTypeDefinition::Alias { referenced_type }
-                | DataTypeDefinition::Enum { referenced_type, .. } => {
-                    self.create_typedef_type(datatype.get_name(), referenced_type, index, location)
-                }
-                // Other types are just derived basic types
-                _ => Ok(()),
             }
         } else {
             Ok(())
