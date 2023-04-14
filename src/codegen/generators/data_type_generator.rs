@@ -9,7 +9,6 @@ use std::collections::{HashMap, VecDeque};
 /// - sized Strings
 use crate::ast::SourceRange;
 use crate::codegen::debug::Debug;
-use crate::diagnostics::Diagnostician;
 use crate::index::{Index, VariableIndexEntry, VariableType};
 use crate::resolver::AstAnnotations;
 use crate::typesystem::{Dimension, StringEncoding, StructSource};
@@ -52,7 +51,6 @@ pub fn generate_data_types<'ink>(
     debug: &mut DebugBuilderEnum<'ink>,
     index: &Index,
     annotations: &AstAnnotations,
-    diagnostician: &Diagnostician,
 ) -> Result<LlvmTypedIndex<'ink>, Diagnostic> {
     let mut generator =
         DataTypeGenerator { llvm, debug, index, annotations, types_index: LlvmTypedIndex::default() };
@@ -146,19 +144,19 @@ pub fn generate_data_types<'ink>(
             .into_iter()
             .map(|(name, ty)| {
                 errors
-                    .get(name)
+                    .remove(name)
                     .map(|diag| diag.with_extra_ranges(&[ty.location.source_range.clone()]))
                     .unwrap_or_else(|| {
                         Diagnostic::cannot_generate_initializer(name, ty.location.source_range.clone())
                     })
             })
             .collect::<Vec<_>>();
-        diagnostician.handle(diags);
         //Report the operation failure
-        return Err(Diagnostic::codegen_error(
-            "Some initial values were not generated",
-            SourceRange::undefined(),
-        ));
+        return Err(Diagnostic::CombinedDiagnostic{
+            message: "Some initial values were not generated".to_string(),
+            err_no: crate::diagnostics::ErrNo::codegen__general,
+            inner_diagnostics: diags,
+        });
     }
     Ok(generator.types_index)
 }

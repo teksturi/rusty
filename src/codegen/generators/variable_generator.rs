@@ -24,6 +24,7 @@ pub fn generate_global_variables<'ctx, 'b>(
     global_index: &'b Index,
     annotations: &'b AstAnnotations,
     types_index: &'b LlvmTypedIndex<'ctx>,
+    location: &'b str,
 ) -> Result<LlvmTypedIndex<'ctx>, Diagnostic> {
     let mut index = LlvmTypedIndex::default();
 
@@ -50,7 +51,7 @@ pub fn generate_global_variables<'ctx, 'b>(
 
     for (name, variable) in globals.chain(programs).chain(initializers).chain(enums) {
         let global_variable =
-            generate_global_variable(module, llvm, global_index, annotations, types_index, variable)
+            generate_global_variable(module, llvm, global_index, annotations, types_index, variable, location)
                 .map_err(|err| match err.get_type() {
                     ErrNo::codegen__missing_function | ErrNo::reference__unresolved => {
                         Diagnostic::cannot_generate_initializer(name, SourceRange::undefined())
@@ -82,6 +83,7 @@ pub fn generate_global_variable<'ctx, 'b>(
     annotations: &'b AstAnnotations,
     index: &'b LlvmTypedIndex<'ctx>,
     global_variable: &VariableIndexEntry,
+    location: &'b str,
 ) -> Result<GlobalValue<'ctx>, Diagnostic> {
     let type_name = global_variable.get_type_name();
     let variable_type = index.get_associated_type(type_name)?;
@@ -107,7 +109,8 @@ pub fn generate_global_variable<'ctx, 'b>(
 
     let mut global_ir_variable =
         llvm.create_global_variable(module, global_variable.get_name(), variable_type);
-    if global_variable.is_external() {
+
+    if global_variable.is_external() || !global_variable.is_in_unit(location) {
         global_ir_variable = global_ir_variable.make_external();
     } else {
         let initial_value = initial_value

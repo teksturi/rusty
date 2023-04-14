@@ -1,12 +1,15 @@
-use std::path::PathBuf;
-
 // Copyright (c) 2020 Ghaith Hachem and Mathias Rieder
-use inkwell::context::Context;
-use rusty::*;
 
+use std::path::PathBuf;
+use encoding_rs::Encoding;
+use inkwell::module::Module;
 //Import the helper run methods into the tests
-pub use rusty::runner::{compile, compile_and_run, run, MainType};
+pub use runner::{compile, compile_and_run, MainType};
+pub use inkwell::context::Context;
+use rusty::{CompileOptions, diagnostics::Diagnostic};
+pub use source::*;
 
+mod runner;
 mod correctness {
     mod arrays;
     mod bitaccess;
@@ -34,17 +37,18 @@ mod correctness {
     }
     mod vla;
 }
-
 mod integration {
-    mod build_description_tests;
     mod command_line_compile;
-    mod external_files;
-    mod linking;
-    mod multi_files;
+    mod build_description_tests;
+    // TODO: Rewrite to use command line arguments
+    //mod external_files;
+    // mod linking;
+    // mod multi_files;
 }
 
 #[macro_use]
 extern crate serial_test;
+
 
 #[macro_export]
 macro_rules! assert_almost_eq {

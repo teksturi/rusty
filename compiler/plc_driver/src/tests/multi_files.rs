@@ -1,4 +1,7 @@
-use crate::{test_utils::tests::compile_with_root, DebugLevel, SourceCode};
+use plc::DebugLevel;
+use source_code::SourceCode;
+
+use crate::tests::compile_with_root;
 
 #[test]
 fn multiple_source_files_generated() {
@@ -25,10 +28,11 @@ fn multiple_source_files_generated() {
     "
     .into();
     //When the are generated
-    let res = compile_with_root(vec![src1, src2], vec![], "root", DebugLevel::None).unwrap();
+    let results = compile_with_root(vec![src1, src2], vec![], "root", DebugLevel::None).unwrap();
+    assert_eq!(results.len(), 2);
     //The datatypes do not conflics
     //The functions are defined correctly
-    insta::assert_snapshot!(res);
+    insta::assert_snapshot!(results.join("\n"));
 }
 
 #[test]
@@ -49,7 +53,7 @@ fn multiple_files_with_debug_info() {
 
     "
         .to_string(),
-        path: "file1.st".to_string(),
+        path: "file1.st".into(),
     };
 
     let src2: SourceCode = SourceCode {
@@ -60,13 +64,14 @@ fn multiple_files_with_debug_info() {
     END_PROGRAM
     "
         .to_string(),
-        path: "file2.st".to_string(),
+        path: "file2.st".into(),
     };
     //When the are generated
-    let res = compile_with_root(vec![src1, src2], vec![], "root", DebugLevel::Full).unwrap();
+    let results = compile_with_root(vec![src1, src2], vec![], "root", DebugLevel::Full).unwrap();
+    assert_eq!(results.len(), 2);
     //The datatypes do not conflics
     //The functions are defined correctly
-    insta::assert_snapshot!(res);
+    insta::assert_snapshot!(results.join("\n"));
 }
 
 #[test]
@@ -87,7 +92,7 @@ fn multiple_files_in_different_locations_with_debug_info() {
 
     "
         .to_string(),
-        path: "app/file1.st".to_string(),
+        path: "app/file1.st".into(),
     };
 
     let src2: SourceCode = SourceCode {
@@ -98,11 +103,12 @@ fn multiple_files_in_different_locations_with_debug_info() {
     END_PROGRAM
     "
         .to_string(),
-        path: "lib/file2.st".to_string(),
+        path: "lib/file2.st".into(),
     };
     //When the are generated
-    let res = compile_with_root(vec![src1, src2], vec![], "root", DebugLevel::Full).unwrap();
+    let results = compile_with_root(vec![src1, src2], vec![], "root", DebugLevel::Full).unwrap();
+    assert_eq!(results.len(), 2);
     //The datatypes do not conflics
     //The functions are defined correctly
-    insta::assert_snapshot!(res);
+    insta::assert_snapshot!(results.join("\n"));
 }

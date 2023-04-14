@@ -18,25 +18,22 @@
 //! [`IEC61131-3`]: https://en.wikipedia.org/wiki/IEC_61131-3
 //! [`IR`]: https://llvm.org/docs/LangRef.html
 
-use rusty::cli::{CompileParameters, ParameterError};
-use rusty::{build_with_params, build_with_subcommand};
-
 fn main() {
-    let args: Vec<String> = std::env::args().collect();
+    // let args: Vec<String> = std::env::args().collect();
 
-    let compile_parameters: Result<CompileParameters, ParameterError> = CompileParameters::parse(&args);
-    match compile_parameters {
-        Ok(cp) => {
-            if cp.commands.is_some() {
-                if let Err(msg) = build_with_subcommand(cp) {
-                    eprintln!("Error: {msg:?}");
-                    std::process::exit(1);
-                }
-            } else if let Err(msg) = build_with_params(cp) {
-                eprintln!("Error: {msg:?}");
-                std::process::exit(1);
-            }
-        }
-        Err(err) => err.exit(), // prints the nice message to std-out
-    }
+    // let compile_parameters: Result<CompileParameters, ParameterError> = CompileParameters::parse(&args);
+    // match compile_parameters {
+    //     Ok(cp) => {
+    //         if cp.commands.is_some() {
+    //             if let Err(msg) = build_with_subcommand(cp) {
+    //                 eprintln!("Error: {msg:?}");
+    //                 std::process::exit(1);
+    //             }
+    //         } else if let Err(msg) = build_with_params(cp) {
+    //             eprintln!("Error: {msg:?}");
+    //             std::process::exit(1);
+    //         }
+    //     }
+    //     Err(err) => err.exit(), // prints the nice message to std-out
+    // }
 }

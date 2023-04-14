@@ -217,6 +217,15 @@ impl VariableIndexEntry {
         self.linkage == LinkageType::External
     }
 
+    pub fn is_in_unit(&self, unit: &str) -> bool {
+        if let Some(filename) = self.source_location.source_range.get_file_name() {
+            filename == unit
+        } else {
+            //Fallback, if no file is defined all files are local
+            true
+        }
+    }
+
     pub fn get_variable_type(&self) -> VariableType {
         self.variable_type.get_variable_type()
     }

@@ -1,6 +1,6 @@
 use std::ffi::CStr;
 
-use rusty::runner::compile_and_run;
+use crate::compile_and_run;
 
 #[test]
 fn variable_length_array_single_dimension_access() {

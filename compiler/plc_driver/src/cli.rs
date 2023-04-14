@@ -1,9 +1,9 @@
 // Copyright (c) 2021 Ghaith Hachem and Mathias Rieder
 use clap::{ArgGroup, CommandFactory, ErrorKind, Parser, Subcommand};
 use encoding_rs::Encoding;
-use std::{ffi::OsStr, path::Path};
+use std::{ffi::OsStr, num::ParseIntError, path::{Path, PathBuf}};
 
-use crate::{ConfigFormat, DebugLevel, ErrorFormat, FormatOption};
+use plc::{ConfigFormat, DebugLevel, ErrorFormat, FormatOption, Threads, Target};
 
 pub type ParameterError = clap::Error;
 
@@ -32,7 +32,8 @@ pub struct CompileParameters {
     #[clap(long = "shared", group = "format", help = "Emit a shared object as output")]
     pub output_shared_obj: bool,
 
-    #[clap(long = "pic", group = "format", help = "Emit PIC (Position Independent Code) as output")]
+    #[clap(long = "pic", group = "format", help = "Equivalent to --shared")]
+    #[deprecated]
     pub output_pic_obj: bool,
 
     #[clap(long = "static", group = "format", help = "Emit an object as output")]
@@ -52,7 +53,7 @@ pub struct CompileParameters {
     pub compile_only: bool,
 
     #[clap(long, name = "target-triple", global = true, help = "A target-triple supported by LLVM")]
-    pub target: Vec<String>,
+    pub target: Vec<Target>,
 
     #[clap(
         long,
@@ -104,7 +105,7 @@ pub struct CompileParameters {
         default_value = "default",
         global = true
     )]
-    pub optimization: crate::OptimizationLevel,
+    pub optimization: plc::OptimizationLevel,
 
     #[clap(
         name = "error-format",
@@ -138,6 +139,16 @@ pub struct CompileParameters {
     )]
     pub generate_varinfo: bool,
 
+    #[clap(
+        name = "threads",
+        long,
+        short = 'j',
+        help = "Set the number of threads to use for the compilation",
+        global = true,
+        parse(try_from_str = get_parallel_threads)
+    )]
+    pub threads: Option<Threads>,
+
     #[clap(subcommand)]
     pub commands: Option<SubCommands>,
 }
@@ -165,6 +176,24 @@ pub enum SubCommands {
         #[clap(name = "lib-location", long)]
         lib_location: Option<String>,
     },
+
+    /// Used to trigger a check, but not compile action.
+    Check {
+        #[clap(
+            parse(try_from_str = validate_config)
+        )]
+        build_config: Option<String>,
+    },
+}
+
+impl SubCommands {
+    pub fn get_build_configuration(&self) -> Option<&str> {
+        match self {
+            SubCommands::Build { build_config, .. } |
+            SubCommands::Check { build_config } => build_config.as_deref(),
+            _ => None
+        }
+    }
 }
 
 fn parse_encoding(encoding: &str) -> Result<&'static Encoding, String> {
@@ -179,6 +208,15 @@ fn validate_config(config_name: &str) -> Result<String, String> {
     }
 }
 
+fn get_parallel_threads(thread_count: &str) -> Result<Threads, ParseIntError> {
+    if thread_count.is_empty() {
+        Ok(Threads::Full)
+    } else {
+        let count = thread_count.parse::<i32>()?;
+        Ok(Threads::Fix(count))
+    }
+}
+
 pub fn get_config_format(name: &str) -> Option<ConfigFormat> {
     let ext = name.split('.').last();
     match ext {
@@ -189,7 +227,7 @@ pub fn get_config_format(name: &str) -> Option<ConfigFormat> {
 }
 
 impl CompileParameters {
-    pub fn parse<T: AsRef<OsStr>>(args: &[T]) -> Result<CompileParameters, ParameterError> {
+    pub fn parse<T: AsRef<OsStr> + AsRef<str>>(args: &[T]) -> Result<CompileParameters, ParameterError> {
         CompileParameters::try_parse_from(args).and_then(|result| {
             if result.sysroot.len() > result.target.len() {
                 let mut cmd = CompileParameters::command();
@@ -219,9 +257,7 @@ impl CompileParameters {
             Some(FormatOption::Bitcode)
         } else if self.output_ir {
             Some(FormatOption::IR)
-        } else if self.output_pic_obj {
-            Some(FormatOption::PIC)
-        } else if self.output_shared_obj {
+        } else if self.output_pic_obj || self.output_shared_obj {
             Some(FormatOption::Shared)
         } else if self.compile_only {
             Some(FormatOption::Object)
@@ -244,27 +280,36 @@ impl CompileParameters {
         self.output_format().unwrap_or_default()
     }
 
-    /// return the output filename with the correct ending
-    pub fn output_name(&self) -> String {
-        let input = self
-            .input
-            .first()
-            .map(Path::new)
-            .and_then(Path::file_stem)
-            .and_then(OsStr::to_str)
-            .unwrap_or(crate::DEFAULT_OUTPUT_NAME);
-        crate::get_output_name(self.output.as_deref(), self.output_format_or_default(), input)
-    }
+    // /// return the output filename with the correct ending
+    // pub fn output_name(&self) -> String {
+    //     let input = self
+    //         .input
+    //         .first()
+    //         .map(Path::new)
+    //         .and_then(Path::file_stem)
+    //         .and_then(OsStr::to_str)
+    //         .unwrap_or(DEFAULT_OUTPUT_NAME);
+    //     crate::get_output_name(self.output.as_deref(), self.output_format_or_default(), input)
+    // }
 
     pub fn config_format(&self) -> Option<ConfigFormat> {
         self.hardware_config.as_deref().and_then(get_config_format)
+    }
+
+    /// Returns the location where the build artifacts should be stored / output
+    pub fn get_build_location(&self) -> Option<PathBuf> {
+        match &self.commands {
+            Some(SubCommands::Build { build_location, .. }) => build_location.as_ref().map(|it| PathBuf::from(it)),
+            _ => None
+        }
+
     }
 }
 
 #[cfg(test)]
 mod cli_tests {
     use super::{CompileParameters, SubCommands};
-    use crate::{ConfigFormat, ErrorFormat, FormatOption, OptimizationLevel};
+    use plc::{ConfigFormat, ErrorFormat, FormatOption, OptimizationLevel};
     use clap::{CommandFactory, ErrorKind};
     use pretty_assertions::assert_eq;
     use std::ffi::OsStr;
@@ -278,7 +323,7 @@ mod cli_tests {
 
     fn expect_argument_error<T>(args: &[T], expected_error_kind: ErrorKind)
     where
-        T: Debug + AsRef<OsStr>,
+        T: Debug + AsRef<OsStr> + AsRef<str>, 
     {
         let params = CompileParameters::parse(args);
         match params {
@@ -328,47 +373,47 @@ mod cli_tests {
         expect_argument_error(vec_of_strings!["input.st", "--ir", "-u"], ErrorKind::UnknownArgument);
     }
 
-    #[test]
-    fn valid_output_files() {
-        //short -o
-        let parameters =
-            CompileParameters::parse(vec_of_strings!("input.st", "--ir", "-o", "myout.out")).unwrap();
-        assert_eq!(parameters.output_name(), "myout.out".to_string());
+    //#[test]
+    //fn valid_output_files() {
+    //    //short -o
+    //    let parameters =
+    //        CompileParameters::parse(vec_of_strings!("input.st", "--ir", "-o", "myout.out")).unwrap();
+    //    assert_eq!(parameters.output_name(), "myout.out".to_string());
 
-        //long --output
-        let parameters =
-            CompileParameters::parse(vec_of_strings!("input.st", "--ir", "--output", "myout2.out")).unwrap();
-        assert_eq!(parameters.output_name(), "myout2.out".to_string());
-    }
+    //    //long --output
+    //    let parameters =
+    //        CompileParameters::parse(vec_of_strings!("input.st", "--ir", "--output", "myout2.out")).unwrap();
+    //    assert_eq!(parameters.output_name(), "myout2.out".to_string());
+    //}
 
-    #[test]
-    fn test_default_output_names() {
-        let parameters = CompileParameters::parse(vec_of_strings!("alpha.st", "--ir")).unwrap();
-        assert_eq!(parameters.output_name(), "alpha.ll".to_string());
+    // #[test]
+    // fn test_default_output_names() {
+    //     let parameters = CompileParameters::parse(vec_of_strings!("alpha.st", "--ir")).unwrap();
+    //     assert_eq!(parameters.output_name(), "alpha.ll".to_string());
 
-        let parameters = CompileParameters::parse(vec_of_strings!("bravo", "--shared")).unwrap();
-        assert_eq!(parameters.output_name(), "bravo.so".to_string());
+    //     let parameters = CompileParameters::parse(vec_of_strings!("bravo", "--shared")).unwrap();
+    //     assert_eq!(parameters.output_name(), "bravo.so".to_string());
 
-        let parameters = CompileParameters::parse(vec_of_strings!("examples/charlie.st", "--pic")).unwrap();
-        assert_eq!(parameters.output_name(), "charlie.so".to_string());
+    //     let parameters = CompileParameters::parse(vec_of_strings!("examples/charlie.st", "--pic")).unwrap();
+    //     assert_eq!(parameters.output_name(), "charlie.so".to_string());
 
-        let parameters =
-            CompileParameters::parse(vec_of_strings!("examples/test/delta.st", "--static", "-c")).unwrap();
-        assert_eq!(parameters.output_name(), "delta.o".to_string());
+    //     let parameters =
+    //         CompileParameters::parse(vec_of_strings!("examples/test/delta.st", "--static", "-c")).unwrap();
+    //     assert_eq!(parameters.output_name(), "delta.o".to_string());
 
-        let parameters = CompileParameters::parse(vec_of_strings!("examples/test/echo", "--bc")).unwrap();
-        assert_eq!(parameters.output_name(), "echo.bc".to_string());
+    //     let parameters = CompileParameters::parse(vec_of_strings!("examples/test/echo", "--bc")).unwrap();
+    //     assert_eq!(parameters.output_name(), "echo.bc".to_string());
 
-        let parameters = CompileParameters::parse(vec_of_strings!("examples/test/echo.st")).unwrap();
-        assert_eq!(parameters.output_name(), "echo".to_string());
-    }
+    //     let parameters = CompileParameters::parse(vec_of_strings!("examples/test/echo.st")).unwrap();
+    //     assert_eq!(parameters.output_name(), "echo".to_string());
+    // }
 
     #[test]
     fn test_target_triple() {
         let parameters =
             CompileParameters::parse(vec_of_strings!("alpha.st", "--target", "x86_64-linux-gnu")).unwrap();
 
-        assert_eq!(parameters.target, vec!["x86_64-linux-gnu".to_string()]);
+        assert_eq!(parameters.target, vec!["x86_64-linux-gnu".into()]);
     }
 
     #[test]
@@ -405,17 +450,14 @@ mod cli_tests {
 
     #[test]
     fn test_default_format() {
-        let parameters = CompileParameters::parse(vec_of_strings!("alpha.st", "--check")).unwrap();
-        assert_eq!(parameters.output_format_or_default(), FormatOption::None);
-
         let parameters = CompileParameters::parse(vec_of_strings!("alpha.st", "--ir")).unwrap();
         assert_eq!(parameters.output_format_or_default(), FormatOption::IR);
 
         let parameters = CompileParameters::parse(vec_of_strings!("bravo", "--shared")).unwrap();
         assert_eq!(parameters.output_format_or_default(), FormatOption::Shared);
 
-        let parameters = CompileParameters::parse(vec_of_strings!("examples/charlie.st", "--pic")).unwrap();
-        assert_eq!(parameters.output_format_or_default(), FormatOption::PIC);
+        let parameters = CompileParameters::parse(vec_of_strings!("charlie", "--pic")).unwrap();
+        assert_eq!(parameters.output_format_or_default(), FormatOption::Shared);
 
         let parameters =
             CompileParameters::parse(vec_of_strings!("examples/test/delta.st", "--static")).unwrap();
@@ -572,11 +614,29 @@ mod cli_tests {
                     assert_eq!(build_config, Some("src/ProjectPlc.json".to_string()));
                     assert_eq!(build_location, Some("bin/build".to_string()));
                     assert_eq!(lib_location, Some("bin/build/libs".to_string()));
-                }
+                },
+                _ => panic!("Unexpected command")
             };
             assert_eq!(parameters.sysroot, vec!["sysroot1".to_string(), "sysroot2".to_string()]);
-            assert_eq!(parameters.target, vec!["targettest".to_string(), "othertarget".to_string()]);
+            assert_eq!(parameters.target, vec!["targettest".into(), "othertarget".into()]);
             assert_eq!(parameters.linker, Some("cc".to_string()));
+        }
+    }
+
+    #[test]
+    fn check_subcommand() {
+        let parameters = CompileParameters::parse(vec_of_strings!(
+            "check",
+            "src/ProjectPlc.json"
+        ))
+        .unwrap();
+        if let Some(commands) = parameters.commands {
+            match commands {
+                SubCommands::Check { build_config } => {
+                    assert_eq!(build_config, Some("src/ProjectPlc.json".to_string()));
+                },
+                _ => panic!("Unexpected command")
+            };
         }
     }
 

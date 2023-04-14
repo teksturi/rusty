@@ -34,7 +34,6 @@ impl<'ink> GlobalValueExt for GlobalValue<'ink> {
     }
 
     fn make_external(self) -> Self {
-        // self.set_linkage(Linkage::AvailableExternally);
         self.set_linkage(Linkage::External);
         self
     }

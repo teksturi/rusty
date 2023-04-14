@@ -3,8 +3,8 @@ use std::{env, fs};
 use crate::get_test_file;
 use inkwell::context::Context;
 use rusty::{
-    build_and_link, compile_module, diagnostics::Diagnostic, link, persist, CompileOptions, ErrorFormat,
-    FilePath, FormatOption, LinkOptions, Target,
+    diagnostics::Diagnostic, CompileOptions, ErrorFormat,
+    FormatOption, LinkOptions, Target,
 };
 
 static TARGET: Option<&str> = Some("x86_64-linux-gnu");
@@ -265,9 +265,9 @@ fn link_missing_file() {
     //Compile file1 as shared object with file2 as param
     let context = Context::create();
     let compile_opions = CompileOptions { error_format: ErrorFormat::Rich, ..Default::default() };
-    let (_, codegen) = compile_module(&context, vec![file1], vec![], None, &compile_opions).unwrap();
+    let module = compile_in_single_module(&context, &[file1], &[], None, &compile_opions).unwrap();
     let object = persist(
-        &codegen,
+        &module,
         &out,
         FormatOption::Static,
         &target.get_target_triple(),

@@ -1,5 +1,5 @@
 // Copyright (c) 2020 Ghaith Hachem and Mathias Rieder
-use super::super::*;
+use crate::*;
 use std::str;
 #[allow(dead_code)]
 #[repr(C)]
@@ -890,7 +890,7 @@ fn lreal_to_int_assignment() {
             main := LOG();
         END_FUNCTION
     "#;
-    let res: i32 = compile_and_run(function.to_string(), &mut rusty::runner::MainType::default());
+    let res: i32 = compile_and_run(function.to_string(), &mut crate::MainType::default());
     assert_eq!(1, res);
 }
 

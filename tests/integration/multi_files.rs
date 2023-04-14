@@ -2,7 +2,7 @@ use inkwell::{
     context::Context,
     targets::{InitializationConfig, Target},
 };
-use rusty::{compile_module, runner::run_no_param, CompileOptions, FilePath};
+use rusty::{compile_in_single_module, runner::run_no_param, CompileOptions, FilePath};
 
 use crate::{compile_and_run, get_test_file};
 
@@ -32,19 +32,19 @@ fn multiple_files_create_same_generic_implementation() {
     Target::initialize_native(&InitializationConfig::default()).unwrap();
     let context: Context = Context::create();
 
-    let (_, code_gen) = compile_module(
+    let module = compile_in_single_module(
         &context,
-        vec![gen_func, file1, file2],
-        vec![],
+        &[gen_func, file1, file2],
+        &[],
         None,
         &CompileOptions { error_format: rusty::ErrorFormat::Rich, ..Default::default() },
     )
     .unwrap();
 
-    let exec_engine = code_gen.module.create_jit_execution_engine(inkwell::OptimizationLevel::None).unwrap();
+    let exec_engine = module.create_jit_execution_engine(inkwell::OptimizationLevel::None).unwrap();
 
     // THEN both calls from foo1 and foo2 should target the same implementation
-    let fn_value = code_gen.module.get_function("CONCAT_DATE__INT").unwrap();
+    let fn_value = module.get_function("CONCAT_DATE__INT").unwrap();
     exec_engine.add_global_mapping(&fn_value, concat_date as usize);
 
     let res: i64 = run_no_param(&exec_engine, "foo1");

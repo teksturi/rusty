@@ -281,6 +281,10 @@ pub trait AnnotationMap {
             _ => self.get_call_name(s),
         }
     }
+
+    fn has_type_annotation(&self, s: &AstStatement) -> bool;
+
+    fn get_generic_nature(&self, s: &AstStatement) -> Option<&TypeNature>;
 }
 
 #[derive(Debug)]
@@ -310,6 +314,14 @@ impl AnnotationMap for AstAnnotations {
 
     fn get_hidden_function_call(&self, s: &AstStatement) -> Option<&AstStatement> {
         self.annotation_map.get_hidden_function_call(s)
+    }
+
+    fn has_type_annotation(&self, s: &AstStatement) -> bool {
+        self.annotation_map.has_type_annotation(s)
+    }
+
+    fn get_generic_nature(&self, s: &AstStatement) -> Option<&TypeNature> {
+        self.annotation_map.get_generic_nature(s)
     }
 }
 
@@ -388,13 +400,6 @@ impl AnnotationMapImpl {
         self.generic_nature_map.insert(s.get_id(), nature);
     }
 
-    pub fn has_type_annotation(&self, s: &AstStatement) -> bool {
-        self.type_map.contains_key(&s.get_id())
-    }
-
-    pub fn get_generic_nature(&self, s: &AstStatement) -> Option<&TypeNature> {
-        self.generic_nature_map.get(&s.get_id())
-    }
 }
 
 impl AnnotationMap for AnnotationMapImpl {
@@ -415,6 +420,14 @@ impl AnnotationMap for AnnotationMapImpl {
         self.get(s).and_then(|it| {
             get_type_for_annotation(index, it).or_else(|| get_type_for_annotation(&self.new_index, it))
         })
+    }
+
+    fn has_type_annotation(&self, s: &AstStatement) -> bool {
+        self.type_map.contains_key(&s.get_id())
+    }
+
+    fn get_generic_nature(&self, s: &AstStatement) -> Option<&TypeNature> {
+        self.generic_nature_map.get(&s.get_id())
     }
 }
 

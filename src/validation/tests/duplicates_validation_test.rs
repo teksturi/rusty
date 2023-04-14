@@ -1,5 +1,3 @@
-use insta::assert_snapshot;
-
 use crate::{
     assert_validation_snapshot,
     ast::{self, CompilationUnit, SourceRangeFactory},
@@ -7,10 +5,9 @@ use crate::{
     lexer::{self, IdProvider},
     parser,
     resolver::TypeAnnotator,
-    test_utils::tests::{compile_to_string, parse_and_validate},
+    test_utils::tests::parse_and_validate,
     typesystem,
     validation::Validator,
-    DebugLevel, SourceCode,
 };
 
 #[test]
@@ -483,43 +480,43 @@ fn duplicate_with_generic() {
     assert_eq!(diagnostics, vec![]);
 }
 
-#[test]
-fn duplicate_with_generic_ir() {
-    // GIVEN several files with calls to a generic function
-    let file1: SourceCode = r"
-            {external}
-            FUNCTION foo <T: ANY_INT> : DATE
-            VAR_INPUT
-                a : T;
-                b : T;
-                c : T;
-            END_VAR
-            END_FUNCTION
-            "
-    .into();
+// #[test]
+// fn duplicate_with_generic_ir() {
+//     // GIVEN several files with calls to a generic function
+//     let file1: SourceCode = r"
+//             {external}
+//             FUNCTION foo <T: ANY_INT> : DATE
+//             VAR_INPUT
+//                 a : T;
+//                 b : T;
+//                 c : T;
+//             END_VAR
+//             END_FUNCTION
+//             "
+//     .into();
 
-    let file2: SourceCode = r"
-        PROGRAM prg1
-            foo(INT#1, SINT#2, SINT#3);
-            foo(DINT#1, SINT#2, SINT#3);
-            foo(INT#1, SINT#2, SINT#3);
-            foo(INT#1, SINT#2, SINT#3);
-        END_PROGRAM
-        "
-    .into();
-    let file3: SourceCode = r"
-        PROGRAM prg2
-            foo(INT#1, SINT#2, SINT#3);
-            foo(DINT#1, SINT#2, SINT#3);
-            foo(INT#1, SINT#2, SINT#3);
-            foo(INT#1, SINT#2, SINT#3);
-        END_PROGRAM
-        "
-    .into();
-    // WHEN we compile
-    let ir = compile_to_string(vec![file1, file2, file3], vec![], None, DebugLevel::None).unwrap();
+//     let file2: SourceCode = r"
+//         PROGRAM prg1
+//             foo(INT#1, SINT#2, SINT#3);
+//             foo(DINT#1, SINT#2, SINT#3);
+//             foo(INT#1, SINT#2, SINT#3);
+//             foo(INT#1, SINT#2, SINT#3);
+//         END_PROGRAM
+//         "
+//     .into();
+//     let file3: SourceCode = r"
+//         PROGRAM prg2
+//             foo(INT#1, SINT#2, SINT#3);
+//             foo(DINT#1, SINT#2, SINT#3);
+//             foo(INT#1, SINT#2, SINT#3);
+//             foo(INT#1, SINT#2, SINT#3);
+//         END_PROGRAM
+//         "
+//     .into();
+//     // WHEN we compile
+//     let ir = compile_to_string(vec![file1, file2, file3], vec![], None, DebugLevel::None).unwrap();
 
-    // THEN we expect only 1 declaration per type-specific implementation of the generic function
-    // although file2 & file3 both discovered them independently
-    assert_snapshot!(ir);
-}
+//     // THEN we expect only 1 declaration per type-specific implementation of the generic function
+//     // although file2 & file3 both discovered them independently
+//     assert_snapshot!(ir);
+// }
