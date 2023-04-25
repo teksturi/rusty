@@ -1274,10 +1274,10 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
             AstStatement::PointerAccess { reference, .. } => {
                 self.do_generate_element_pointer(qualifier, reference).map(|it| self.deref(it))
             }
-            AstStatement::Literal { kind: AstLiteral::String { value, is_wide, .. }, .. } => if *is_wide {
-                self.llvm_index.find_utf16_literal_string(value)
+            AstStatement::Literal { kind: AstLiteral::String(str), .. } => if str.is_wide() {
+                self.llvm_index.find_utf16_literal_string(&str.value())
             } else {
-                self.llvm_index.find_utf08_literal_string(value)
+                self.llvm_index.find_utf08_literal_string(&str.value())
             }
             .map(|it| it.as_pointer_value())
             .ok_or_else(|| unreachable!("All string literals have to be constants")),
@@ -1825,47 +1825,72 @@ impl<'ink, 'b> ExpressionCodeGenerator<'ink, 'b> {
 
         match literal_statement {
             AstStatement::Literal { kind, location, .. } => match kind {
-                AstLiteral::Bool { value, .. } => {
-                    self.llvm.create_const_bool(*value).map(ExpressionValue::RValue)
+                AstLiteral::Bool(value) => {
+                    self.llvm.create_const_bool(value.value()).map(ExpressionValue::RValue)
                 }
-                AstLiteral::Integer { value, .. } => self
-                    .generate_numeric_literal(literal_statement, value.to_string().as_str())
+                AstLiteral::Integer(value) => self
+                    .generate_numeric_literal(literal_statement, value.value().to_string().as_str())
                     .map(ExpressionValue::RValue),
-                AstLiteral::Real { value, .. } => {
-                    self.generate_numeric_literal(literal_statement, value).map(ExpressionValue::RValue)
-                }
-                AstLiteral::Date { year, month, day, .. } => {
-                    super::date_time_util::calculate_date_time(*year, *month, *day, 0, 0, 0, 0)
-                        .map_err(|op| Diagnostic::codegen_error(op.as_str(), location.clone()))
-                        .and_then(|ns| self.create_const_int(ns))
-                        .map(ExpressionValue::RValue)
-                }
-                AstLiteral::DateAndTime { year, month, day, hour, min, sec, nano, .. } => {
-                    super::date_time_util::calculate_date_time(*year, *month, *day, *hour, *min, *sec, *nano)
-                        .map_err(|op| Diagnostic::codegen_error(op.as_str(), location.clone()))
-                        .and_then(|ns| self.create_const_int(ns))
-                        .map(ExpressionValue::RValue)
-                }
-                AstLiteral::TimeOfDay { hour, min, sec, nano, .. } => {
-                    super::date_time_util::calculate_date_time(1970, 1, 1, *hour, *min, *sec, *nano)
-                        .map_err(|op| Diagnostic::codegen_error(op.as_str(), location.clone()))
-                        .and_then(|ns| self.create_const_int(ns))
-                        .map(ExpressionValue::RValue)
-                }
-                AstLiteral::Time { day, hour, min, sec, milli, micro, nano, negative, .. } => self
+                AstLiteral::Real(value) => self
+                    .generate_numeric_literal(literal_statement, &value.value())
+                    .map(ExpressionValue::RValue),
+                AstLiteral::Date(value) => super::date_time_util::calculate_date_time(
+                    value.year(),
+                    value.month(),
+                    value.day(),
+                    0,
+                    0,
+                    0,
+                    0,
+                )
+                .map_err(|op| Diagnostic::codegen_error(op.as_str(), location.clone()))
+                .and_then(|ns| self.create_const_int(ns))
+                .map(ExpressionValue::RValue),
+                AstLiteral::DateAndTime(value) => super::date_time_util::calculate_date_time(
+                    value.year(),
+                    value.month(),
+                    value.day(),
+                    value.hour(),
+                    value.min(),
+                    value.sec(),
+                    value.nano(),
+                )
+                .map_err(|op| Diagnostic::codegen_error(op.as_str(), location.clone()))
+                .and_then(|ns| self.create_const_int(ns))
+                .map(ExpressionValue::RValue),
+                AstLiteral::TimeOfDay(value) => super::date_time_util::calculate_date_time(
+                    1970,
+                    1,
+                    1,
+                    value.hour(),
+                    value.min(),
+                    value.sec(),
+                    value.nano(),
+                )
+                .map_err(|op| Diagnostic::codegen_error(op.as_str(), location.clone()))
+                .and_then(|ns| self.create_const_int(ns))
+                .map(ExpressionValue::RValue),
+                AstLiteral::Time(value) => self
                     .create_const_int(super::date_time_util::calculate_time_nano(
-                        *negative,
-                        super::date_time_util::calculate_dhm_time_seconds(*day, *hour, *min, *sec),
-                        *milli,
-                        *micro,
-                        *nano,
+                        value.is_negative(),
+                        super::date_time_util::calculate_dhm_time_seconds(
+                            value.day(),
+                            value.hour(),
+                            value.min(),
+                            value.sec(),
+                        ),
+                        value.milli(),
+                        value.micro(),
+                        value.nano(),
                     ))
                     .map(ExpressionValue::RValue),
-                AstLiteral::String { value, .. } => {
-                    self.generate_string_literal(literal_statement, value, location)
+                AstLiteral::String(str) => {
+                    self.generate_string_literal(literal_statement, &str.value(), location)
                 }
-                AstLiteral::Array { elements, .. } => self
-                    .generate_literal_array(elements.as_ref().ok_or_else(cannot_generate_literal)?.as_ref())
+                AstLiteral::Array(value) => self
+                    .generate_literal_array(
+                        value.elements().as_ref().ok_or_else(cannot_generate_literal)?.as_ref(),
+                    )
                     .map(ExpressionValue::RValue),
                 AstLiteral::Null { .. } => self.llvm.create_null_ptr().map(ExpressionValue::RValue),
             },

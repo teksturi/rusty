@@ -15,8 +15,121 @@ macro_rules! is_covered_by {
     };
 }
 
-#[derive(Clone, PartialEq)]
+macro_rules! impl_get_value {
+    ([$($type:ty),+], [$($out:ty),+]) => {
+        $(impl $type {
+            pub fn value(&self) -> $out {
+                self.value
+            }
+        })*
+    }
+}
+
+macro_rules! impl_getters {
+    ($type:ty, [$($name:ident),+], [$($out:ty),+]) => {
+        $(impl $type {
+            pub fn $name(&self) -> $out {
+                self.$name
+            }
+        })*
+    }
+}
+
 pub enum AstLiteral {
+    Null,
+    Integer(Int),
+    Date(Date),
+    DateAndTime(DateAndTime),
+    TimeOfDay(TimeOfDay),
+    Time(Time),
+    Real(Real),
+    Bool(Bool),
+    String(StringValue),
+    Array(Array),
+}
+
+pub struct Int {
+    value: i128,
+}
+
+pub struct Date {
+    year: i32,
+    month: u32,
+    day: u32,
+}
+
+pub struct DateAndTime {
+    year: i32,
+    month: u32,
+    day: u32,
+    hour: u32,
+    min: u32,
+    sec: u32,
+    nano: u32,
+}
+
+pub struct TimeOfDay {
+    hour: u32,
+    min: u32,
+    sec: u32,
+    nano: u32,
+}
+
+pub struct Time {
+    day: f64,
+    hour: f64,
+    min: f64,
+    sec: f64,
+    milli: f64,
+    micro: f64,
+    nano: u32,
+    negative: bool,
+}
+pub struct Real {
+    value: String,
+}
+
+pub struct Bool {
+    value: bool,
+}
+
+pub struct StringValue {
+    value: String,
+    is_wide: bool,
+}
+
+pub struct Array {
+    elements: Option<Box<AstStatement>>, // expression-list
+}
+
+impl_get_value! {[Int, Real, Bool, StringValue], [i128, String, bool, String ]}
+impl_getters! { Date, [year, month, day], [i32, u32, u32] }
+impl_getters! { DateAndTime, [year, month, day, hour, min, sec, nano], [i32, u32, u32, u32, u32, u32, u32]}
+impl_getters! { TimeOfDay, [hour, min, sec, nano], [u32, u32, u32, u32]}
+impl_getters! { Time, [day, hour, min, sec, milli, micro, nano], [f64, f64, f64, f64, f64, f64, u32]}
+
+impl StringValue {
+    pub fn is_wide(&self) -> bool {
+        self.is_wide
+    }
+}
+
+impl Time {
+    pub fn is_negative(&self) -> bool {
+        self.negative
+    }
+}
+
+impl Array {
+    pub fn elements(&self) -> Option<Box<AstStatement>> {
+        self.elements
+    }
+}
+
+// impl Visitor for Array {} <- Motivation :)
+
+#[derive(Clone, PartialEq)]
+pub enum AstLiteral_ {
     Null,
     Integer {
         value: i128,
@@ -69,28 +182,28 @@ pub enum AstLiteral {
 impl AstLiteral {
     /// Creates a new literal array
     pub fn new_array(elements: Option<Box<AstStatement>>) -> Self {
-        AstLiteral::Array { elements }
+        AstLiteral::Array(Array { elements })
     }
     /// Creates a new literal integer
     pub fn new_integer(value: i128) -> Self {
-        AstLiteral::Integer { value }
+        AstLiteral::Integer(Int { value })
     }
     /// Creates a new literal real
     pub fn new_real(value: String) -> Self {
-        AstLiteral::Real { value }
+        AstLiteral::Real(Real { value })
     }
     /// Creates a new literal bool
     pub fn new_bool(value: bool) -> Self {
-        AstLiteral::Bool { value }
+        AstLiteral::Bool(Bool { value })
     }
     /// Creates a new literal string
     pub fn new_string(value: String, is_wide: bool) -> Self {
-        AstLiteral::String { value, is_wide }
+        AstLiteral::String(StringValue { value, is_wide })
     }
 
     /// Creates a new literal date
     pub fn new_date(year: i32, month: u32, day: u32) -> Self {
-        AstLiteral::Date { year, month, day }
+        AstLiteral::Date(Date { year, month, day })
     }
 
     /// Creates a new literal date and time
@@ -103,12 +216,12 @@ impl AstLiteral {
         sec: u32,
         nano: u32,
     ) -> Self {
-        AstLiteral::DateAndTime { year, month, day, hour, min, sec, nano }
+        AstLiteral::DateAndTime(DateAndTime { year, month, day, hour, min, sec, nano })
     }
 
     /// Creates a new literal time of day
     pub fn new_time_of_day(hour: u32, min: u32, sec: u32, nano: u32) -> Self {
-        AstLiteral::TimeOfDay { hour, min, sec, nano }
+        AstLiteral::TimeOfDay(TimeOfDay { hour, min, sec, nano })
     }
 
     /// Creates a new literal null
@@ -118,7 +231,7 @@ impl AstLiteral {
 
     pub fn get_literal_actual_signed_type_name(&self, signed: bool) -> Option<&str> {
         match self {
-            AstLiteral::Integer { value, .. } => match signed {
+            AstLiteral::Integer(Int { value, .. }) => match signed {
                 _ if *value == 0_i128 || *value == 1_i128 => Some(BOOL_TYPE),
                 true if is_covered_by!(i8, *value) => Some(SINT_TYPE),
                 true if is_covered_by!(i16, *value) => Some(INT_TYPE),
@@ -132,8 +245,8 @@ impl AstLiteral {
                 _ => Some(VOID_TYPE),
             },
             AstLiteral::Bool { .. } => Some(BOOL_TYPE),
-            AstLiteral::String { is_wide: true, .. } => Some(WSTRING_TYPE),
-            AstLiteral::String { is_wide: false, .. } => Some(STRING_TYPE),
+            AstLiteral::String(StringValue { is_wide: true, .. }) => Some(WSTRING_TYPE),
+            AstLiteral::String(StringValue { is_wide: false, .. }) => Some(STRING_TYPE),
             AstLiteral::Real { .. } => Some(LREAL_TYPE),
             AstLiteral::Date { .. } => Some(DATE_TYPE),
             AstLiteral::DateAndTime { .. } => Some(DATE_AND_TIME_TYPE),
@@ -145,15 +258,15 @@ impl AstLiteral {
 
     pub fn get_literal_value(&self) -> String {
         match self {
-            AstLiteral::String { value, is_wide: true, .. } => format!(r#""{value}""#),
-            AstLiteral::String { value, is_wide: false, .. } => format!(r#"'{value}'"#),
-            AstLiteral::Bool { value, .. } => {
+            AstLiteral::String(StringValue { value, is_wide: true, .. }) => format!(r#""{value}""#),
+            AstLiteral::String(StringValue { value, is_wide: false, .. }) => format!(r#"'{value}'"#),
+            AstLiteral::Bool(Bool { value, .. }) => {
                 format!("{value}")
             }
-            AstLiteral::Integer { value, .. } => {
+            AstLiteral::Integer(Int { value, .. }) => {
                 format!("{value}")
             }
-            AstLiteral::Real { value, .. } => value.clone(),
+            AstLiteral::Real(Real { value, .. }) => value.clone(),
             _ => format!("{self:#?}"),
         }
     }
@@ -178,16 +291,16 @@ impl Debug for AstLiteral {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
             AstLiteral::Null => f.debug_struct("LiteralNull").finish(),
-            AstLiteral::Integer { value, .. } => {
+            AstLiteral::Integer(Int { value, .. }) => {
                 f.debug_struct("LiteralInteger").field("value", value).finish()
             }
-            AstLiteral::Date { year, month, day, .. } => f
+            AstLiteral::Date(Date { year, month, day, .. }) => f
                 .debug_struct("LiteralDate")
                 .field("year", year)
                 .field("month", month)
                 .field("day", day)
                 .finish(),
-            AstLiteral::DateAndTime { year, month, day, hour, min, sec, nano, .. } => f
+            AstLiteral::DateAndTime(DateAndTime { year, month, day, hour, min, sec, nano, .. }) => f
                 .debug_struct("LiteralDateAndTime")
                 .field("year", year)
                 .field("month", month)
@@ -197,14 +310,14 @@ impl Debug for AstLiteral {
                 .field("sec", sec)
                 .field("nano", nano)
                 .finish(),
-            AstLiteral::TimeOfDay { hour, min, sec, nano, .. } => f
+            AstLiteral::TimeOfDay(TimeOfDay { hour, min, sec, nano, .. }) => f
                 .debug_struct("LiteralTimeOfDay")
                 .field("hour", hour)
                 .field("min", min)
                 .field("sec", sec)
                 .field("nano", nano)
                 .finish(),
-            AstLiteral::Time { day, hour, min, sec, milli, micro, nano, negative, .. } => f
+            AstLiteral::Time(Time { day, hour, min, sec, milli, micro, nano, negative, .. }) => f
                 .debug_struct("LiteralTime")
                 .field("day", day)
                 .field("hour", hour)
@@ -215,12 +328,16 @@ impl Debug for AstLiteral {
                 .field("nano", nano)
                 .field("negative", negative)
                 .finish(),
-            AstLiteral::Real { value, .. } => f.debug_struct("LiteralReal").field("value", value).finish(),
-            AstLiteral::Bool { value, .. } => f.debug_struct("LiteralBool").field("value", value).finish(),
-            AstLiteral::String { value, is_wide, .. } => {
+            AstLiteral::Real(Real { value, .. }) => {
+                f.debug_struct("LiteralReal").field("value", value).finish()
+            }
+            AstLiteral::Bool(Bool { value, .. }) => {
+                f.debug_struct("LiteralBool").field("value", value).finish()
+            }
+            AstLiteral::String(StringValue { value, is_wide, .. }) => {
                 f.debug_struct("LiteralString").field("value", value).field("is_wide", is_wide).finish()
             }
-            AstLiteral::Array { elements, .. } => {
+            AstLiteral::Array(Array { elements, .. }) => {
                 f.debug_struct("LiteralArray").field("elements", elements).finish()
             }
         }

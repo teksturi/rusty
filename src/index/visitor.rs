@@ -583,8 +583,8 @@ fn visit_data_type(
             let encoding = if *is_wide { StringEncoding::Utf16 } else { StringEncoding::Utf8 };
 
             let size = match size {
-                Some(AstStatement::Literal { kind: AstLiteral::Integer { value, .. }, .. }) => {
-                    TypeSize::from_literal((value + 1) as i64)
+                Some(AstStatement::Literal { kind: AstLiteral::Integer(val), .. }) => {
+                    TypeSize::from_literal((val.value() + 1) as i64)
                 }
                 Some(statement) => {
                     // construct a "x + 1" expression because we need one additional character for \0 terminator
