@@ -1,7 +1,10 @@
 // Copyright (c) 2020 Ghaith Hachem and Mathias Rieder
 
 use crate::{
-    ast::*,
+    ast::{
+        references::{ArrayAccess, AstReference},
+        *,
+    },
     lexer::Token::*,
     lexer::{ParseSession, Token},
     parser::parse_any_in_region,
@@ -393,7 +396,7 @@ fn parse_null_literal(lexer: &mut ParseSession) -> Result<AstStatement, Diagnost
 
 pub fn parse_qualified_reference(lexer: &mut ParseSession) -> Result<AstStatement, Diagnostic> {
     let start = lexer.range().start;
-    let mut reference_elements = vec![parse_reference_access(lexer)?];
+    let mut reference_elements = vec![parse_reference_access(lexer)];
     while lexer.try_consume(&KeywordDot) {
         let segment = match lexer.token {
             //Is this an integer?
@@ -461,36 +464,28 @@ fn parse_direct_access(
     }?;
 
     let location = (location.get_start()..lexer.last_location().get_end()).into();
-    Ok(AstStatement::DirectAccess { access, index: Box::new(index), location, id: lexer.next_id() })
+    Ok(AstStatement::Reference {
+        elements: vec![AstReference::new_direct_access(access, index)],
+        location,
+        id: lexer.next_id(),
+    })
 }
 
-pub fn parse_reference_access(lexer: &mut ParseSession) -> Result<AstStatement, Diagnostic> {
-    let location = lexer.location();
-    let reference =
-        AstStatement::Reference { name: lexer.slice_and_advance(), location, id: lexer.next_id() };
-    parse_access_modifiers(lexer, reference)
-}
-
-fn parse_access_modifiers(
-    lexer: &mut ParseSession,
-    original_reference: AstStatement,
-) -> Result<AstStatement, Diagnostic> {
-    let mut reference = original_reference;
-    //If (while) we hit a dereference, parse and append the dereference to the result
+pub fn parse_reference_access(lexer: &mut ParseSession) -> AstReference {
+    let mut current_ref = AstReference::new_name(lexer.slice_and_advance());
+    // consume array / pointer access sequences eagerly
     while lexer.token == KeywordSquareParensOpen || lexer.token == OperatorDeref {
         if lexer.try_consume(&KeywordSquareParensOpen) {
+            // array acess
             let access = parse_expression(lexer);
             lexer.consume_or_report(KeywordSquareParensClose);
-            reference = AstStatement::ArrayAccess {
-                reference: Box::new(reference),
-                access: Box::new(access),
-                id: lexer.next_id(),
-            };
+            current_ref = AstReference::new_array_access(current_ref, access);
         } else if lexer.try_consume(&OperatorDeref) {
-            reference = AstStatement::PointerAccess { reference: Box::new(reference), id: lexer.next_id() }
+            // pointer access
+            current_ref = AstReference::new_pointer_access(current_ref)
         }
     }
-    Ok(reference)
+    current_ref
 }
 
 fn parse_literal_number_with_modifier(

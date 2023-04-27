@@ -16,8 +16,11 @@ use std::{
     unimplemented, vec,
 };
 
+use self::references::AstReference;
+
 pub mod literals;
 mod pre_processor;
+pub mod references;
 
 pub type AstId = usize;
 
@@ -765,30 +768,30 @@ pub enum AstStatement {
         id: AstId,
     },
     // Expressions
-    QualifiedReference {
-        elements: Vec<AstStatement>,
-        id: AstId,
-    },
+    // QualifiedReference {
+    //     elements: Vec<AstStatement>,
+    //     id: AstId,
+    // },
     Reference {
-        name: String,
+        elements: Vec<AstReference>,
         location: SourceRange,
         id: AstId,
     },
-    ArrayAccess {
-        reference: Box<AstStatement>,
-        access: Box<AstStatement>,
-        id: AstId,
-    },
-    PointerAccess {
-        reference: Box<AstStatement>,
-        id: AstId,
-    },
-    DirectAccess {
-        access: DirectAccessType,
-        index: Box<AstStatement>,
-        location: SourceRange,
-        id: AstId,
-    },
+    // ArrayAccess {
+    //     reference: Box<AstStatement>,
+    //     access: Box<AstStatement>,
+    //     id: AstId,
+    // },
+    // PointerAccess {
+    //     reference: Box<AstStatement>,
+    //     id: AstId,
+    // },
+    // DirectAccess {
+    //     access: DirectAccessType,
+    //     index: Box<AstStatement>,
+    //     location: SourceRange,
+    //     id: AstId,
+    // },
     HardwareAccess {
         direction: HardwareAccessType,
         access: DirectAccessType,
@@ -898,9 +901,8 @@ impl Debug for AstStatement {
             AstStatement::EmptyStatement { .. } => f.debug_struct("EmptyStatement").finish(),
             AstStatement::DefaultValue { .. } => f.debug_struct("DefaultValue").finish(),
             AstStatement::Literal { kind, .. } => kind.fmt(f),
-            AstStatement::Reference { name, .. } => f.debug_struct("Reference").field("name", name).finish(),
-            AstStatement::QualifiedReference { elements, .. } => {
-                f.debug_struct("QualifiedReference").field("elements", elements).finish()
+            AstStatement::Reference { elements, location, id } => {
+                f.debug_struct("Reference").field("elements", elements).finish()
             }
             AstStatement::BinaryExpression { operator, left, right, .. } => f
                 .debug_struct("BinaryExpression")
@@ -956,15 +958,6 @@ impl Debug for AstStatement {
                 .field("case_blocks", case_blocks)
                 .field("else_block", else_block)
                 .finish(),
-            AstStatement::ArrayAccess { reference, access, .. } => {
-                f.debug_struct("ArrayAccess").field("reference", reference).field("access", access).finish()
-            }
-            AstStatement::PointerAccess { reference, .. } => {
-                f.debug_struct("PointerAccess").field("reference", reference).finish()
-            }
-            AstStatement::DirectAccess { access, index, .. } => {
-                f.debug_struct("DirectAccess").field("access", access).field("index", index).finish()
-            }
             AstStatement::HardwareAccess { direction, access, address, location, .. } => f
                 .debug_struct("HardwareAccess")
                 .field("direction", direction)
@@ -1005,11 +998,6 @@ impl AstStatement {
             AstStatement::DefaultValue { location, .. } => location.clone(),
             AstStatement::Literal { location, .. } => location.clone(),
             AstStatement::Reference { location, .. } => location.clone(),
-            AstStatement::QualifiedReference { elements, .. } => {
-                let first = elements.first().map_or_else(SourceRange::undefined, |it| it.get_location());
-                let last = elements.last().map_or_else(SourceRange::undefined, |it| it.get_location());
-                first.span(&last)
-            }
             AstStatement::BinaryExpression { left, right, .. } => {
                 let left_loc = left.get_location();
                 let right_loc = right.get_location();
@@ -1043,13 +1031,6 @@ impl AstStatement {
             AstStatement::WhileLoopStatement { location, .. } => location.clone(),
             AstStatement::RepeatLoopStatement { location, .. } => location.clone(),
             AstStatement::CaseStatement { location, .. } => location.clone(),
-            AstStatement::ArrayAccess { reference, access, .. } => {
-                let reference_loc = reference.get_location();
-                let access_loc = access.get_location();
-                reference_loc.span(&access_loc)
-            }
-            AstStatement::PointerAccess { reference, .. } => reference.get_location(),
-            AstStatement::DirectAccess { location, .. } => location.clone(),
             AstStatement::HardwareAccess { location, .. } => location.clone(),
             AstStatement::MultipliedStatement { location, .. } => location.clone(),
             AstStatement::CaseCondition { condition, .. } => condition.get_location(),
@@ -1066,11 +1047,7 @@ impl AstStatement {
             AstStatement::DefaultValue { id, .. } => *id,
             AstStatement::Literal { id, .. } => *id,
             AstStatement::MultipliedStatement { id, .. } => *id,
-            AstStatement::QualifiedReference { id, .. } => *id,
             AstStatement::Reference { id, .. } => *id,
-            AstStatement::ArrayAccess { id, .. } => *id,
-            AstStatement::PointerAccess { id, .. } => *id,
-            AstStatement::DirectAccess { id, .. } => *id,
             AstStatement::HardwareAccess { id, .. } => *id,
             AstStatement::BinaryExpression { id, .. } => *id,
             AstStatement::UnaryExpression { id, .. } => *id,
@@ -1095,8 +1072,8 @@ impl AstStatement {
 
     /// Returns true if the current statement has a direct access.
     pub fn has_direct_access(&self) -> bool {
-        if let AstStatement::QualifiedReference { elements, .. } = self {
-            matches!(elements.last(), Some(AstStatement::DirectAccess { .. }))
+        if let AstStatement::Reference { elements, .. } = self {
+            elements.iter().any(|it| matches!(it, AstReference::DirectAccess(..)))
         } else {
             false
         }
@@ -1119,7 +1096,11 @@ impl AstStatement {
     }
 
     pub fn is_qualified_reference(&self) -> bool {
-        matches!(self, AstStatement::QualifiedReference { .. })
+        if let AstStatement::Reference { elements, .. } = self {
+            elements.len() > 1
+        } else {
+            false
+        }
     }
 
     pub fn is_hardware_access(&self) -> bool {
@@ -1127,18 +1108,18 @@ impl AstStatement {
     }
 
     pub fn is_array_access(&self) -> bool {
-        if let AstStatement::QualifiedReference { elements, .. } = self {
-            matches!(elements.last(), Some(AstStatement::ArrayAccess { .. }))
+        if let AstStatement::Reference { elements, .. } = self {
+            matches!(elements.last(), Some(AstReference::ArrayAccess { .. }))
         } else {
-            matches!(self, AstStatement::ArrayAccess { .. })
+            false
         }
     }
 
     pub fn is_pointer_access(&self) -> bool {
-        if let AstStatement::QualifiedReference { elements, .. } = self {
-            matches!(elements.last(), Some(AstStatement::PointerAccess { .. }))
+        if let AstStatement::Reference { elements, .. } = self {
+            matches!(elements.last(), Some(AstReference::PointerAccess { .. }))
         } else {
-            matches!(self, AstStatement::PointerAccess { .. })
+            false
         }
     }
 
@@ -1205,11 +1186,14 @@ pub fn get_enum_element_names(enum_elements: &AstStatement) -> Vec<String> {
 
 /// expects a Reference or an Assignment
 pub fn get_enum_element_name(enum_element: &AstStatement) -> String {
-    match enum_element {
-        AstStatement::Reference { name, .. } => name.to_string(),
+    let reference = match enum_element {
+        AstStatement::Reference { elements, .. } if elements.len() == 1 => &elements[0],
         AstStatement::Assignment { left, .. } => {
-            if let AstStatement::Reference { name, .. } = left.as_ref() {
-                name.to_string()
+            let AstStatement::Reference { elements, .. } = left.as_ref() else {
+                unreachable!("left of assignment not a reference")
+            };
+            if elements.len() == 1 {
+                &elements[0]
             } else {
                 unreachable!("left of assignment not a reference")
             }
@@ -1217,7 +1201,12 @@ pub fn get_enum_element_name(enum_element: &AstStatement) -> String {
         _ => {
             unreachable!("expected {:?} to be a Reference or Assignment", enum_element);
         }
-    }
+    };
+
+    let AstReference::Name(name) = reference else {
+        unreachable!("expected {:?} to be a Name", reference);
+    };
+    name.to_string()
 }
 
 /// flattens expression-lists and MultipliedStatements into a vec of statements.
@@ -1236,18 +1225,14 @@ pub fn flatten_expression_list(list: &AstStatement) -> Vec<&AstStatement> {
 
 /// helper function that creates a call-statement
 pub fn create_call_to(
-    function_name: String,
+    function_name: &str,
     parameters: Vec<AstStatement>,
     function_id: usize,
     parameter_list_id: usize,
     location: &SourceRange,
 ) -> AstStatement {
     AstStatement::CallStatement {
-        operator: Box::new(AstStatement::Reference {
-            name: function_name,
-            location: location.clone(),
-            id: function_id,
-        }),
+        operator: Box::new(create_reference(function_name, location, function_id)),
         parameters: Box::new(Some(AstStatement::ExpressionList {
             expressions: parameters,
             id: parameter_list_id,
@@ -1258,17 +1243,13 @@ pub fn create_call_to(
 }
 
 pub fn create_call_to_with_ids(
-    function_name: String,
+    function_name: &str,
     parameters: Vec<AstStatement>,
     location: &SourceRange,
     mut id_provider: IdProvider,
 ) -> AstStatement {
     AstStatement::CallStatement {
-        operator: Box::new(AstStatement::Reference {
-            name: function_name,
-            location: location.clone(),
-            id: id_provider.next_id(),
-        }),
+        operator: Box::new(create_reference(function_name, location, id_provider.next_id())),
         parameters: Box::new(Some(AstStatement::ExpressionList {
             expressions: parameters,
             id: id_provider.next_id(),
@@ -1299,7 +1280,11 @@ pub fn create_not_expression(operator: AstStatement, location: SourceRange) -> A
 }
 
 pub fn create_reference(name: &str, location: &SourceRange, id: AstId) -> AstStatement {
-    AstStatement::Reference { id, location: location.clone(), name: name.to_string() }
+    AstStatement::Reference {
+        id,
+        location: location.clone(),
+        elements: vec![AstReference::Name(name.to_string())],
+    }
 }
 
 pub fn create_literal_int(value: i128, location: &SourceRange, id: AstId) -> AstStatement {
@@ -1363,7 +1348,7 @@ impl Operator {
 }
 
 pub fn create_call_to_check_function_ast(
-    check_function_name: String,
+    check_function_name: &str,
     parameter: AstStatement,
     sub_range: Range<AstStatement>,
     location: &SourceRange,
